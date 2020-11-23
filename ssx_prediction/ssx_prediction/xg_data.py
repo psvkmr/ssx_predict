@@ -1,5 +1,6 @@
 import pandas as pd
 import datetime
+import config
 
 
 class xg_dataset:
@@ -20,12 +21,10 @@ class xg_dataset:
     def __init__(self):
         """Initialises xg_data class object.
         Returns attributes:
-            xg_url: URL of CSV file with 538 per-match statistical analysis
-            xg: CSV file with 538 per-match statistical analysis
+            xg: CSV file with 538 per-match statistical analysis from config.py URL
             all_leagues: Every league with per-match statistical analysis available in 538 dataset
         """
-        self.xg_url = 'https://projects.fivethirtyeight.com/soccer-api/club/spi_matches.csv'
-        self.xg = pd.read_csv(self.xg_url)
+        self.xg = pd.read_csv(config.xg_csv)
         self.xg['date'] = pd.to_datetime(self.xg['date'], format='%Y-%m-%d')
         self.all_leagues = pd.Series(self.xg['league']).unique()
 

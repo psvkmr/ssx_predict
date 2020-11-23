@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from time import sleep
 import xg_data
+import config
 
 class supersix(xg_data.xg_dataset):
     """Import of list of fixtures to be predicted, from the supersix website
@@ -20,16 +21,16 @@ class supersix(xg_data.xg_dataset):
 
     def __init__(self):
         super().__init__()
-        self.ss_url = 'https://super6.skysports.com/play'
+        self.ss_url = config.supersix_url
         options = webdriver.ChromeOptions()
         options.add_argument('headless')
-        self.driver = webdriver.Chrome('C:/Users/Prasanth/chromedriver.exe', options=options)
+        self.driver = webdriver.Chrome(config.cwbd_path, options=options)
         self.driver.get(self.ss_url)
         self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 
     def login(self):
-        self.driver.find_element_by_id('username').send_keys('penstrep')
-        self.driver.find_element_by_id('pin').send_keys('251614')
+        self.driver.find_element_by_id('username').send_keys(config.usrn)
+        self.driver.find_element_by_id('pin').send_keys(config.pno)
         sleep(2)
         self.driver.find_element_by_class_name('_vykkzu').click()
 
@@ -112,7 +113,7 @@ class supersix(xg_data.xg_dataset):
 if __name__ == '__main__':
     ss = supersix()
     #ss.league_filter()
-    ss.season_details()
+    #ss.season_details()
     ss.login()
     sleep(2)
     ss.ss_fixtures()

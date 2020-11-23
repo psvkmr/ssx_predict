@@ -1,6 +1,7 @@
 import pandas as pd
 from bs4 import BeautifulSoup
 from selenium import webdriver
+import config
 
 class understat_data:
     """Import of understat statistical analysis of EPL with standings table and adjustments based on xG and xGA data
@@ -16,11 +17,10 @@ class understat_data:
         Returns attributes:
             ut_soup: Table data from understat parsed using BeautifulSoup
         """
-        ut_url = "https://understat.com/league/EPL"
         options = webdriver.ChromeOptions()
         options.add_argument("headless")
-        driver = webdriver.Chrome(executable_path=r'C:\Users\Prasanth\chromedriver.exe', options=options)
-        driver.get(ut_url)
+        driver = webdriver.Chrome(executable_path=config.cwbd_path, options=options)
+        driver.get(config.understat_url)
         self.ut_soup = BeautifulSoup(driver.page_source, 'html.parser')
 
     def prem_gw_details(self):
