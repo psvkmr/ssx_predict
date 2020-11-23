@@ -1,6 +1,9 @@
 # Data/results files
 data/
 
+# Admin warning message
+.nonadmin
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
