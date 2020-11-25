@@ -1,5 +1,5 @@
-# Data/results files
-data/
+# Results files
+data/results
 
 # Admin warning message
 .nonadmin
