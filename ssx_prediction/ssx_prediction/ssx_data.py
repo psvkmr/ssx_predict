@@ -39,8 +39,8 @@ class supersix(xg_data.xg_dataset):
         fixtures = self.ss_soup.findAll('div', attrs={'class': 'css-c7kzt el5lbu01'})
         self.teams_involved = [team.get_text(strip=True) for team in fixtures]
         for team in self.teams_involved:
-            if config.replace_list.get(team):
-                self.teams_involved[self.teams_involved.index(team)] = config.replace_list.get(team)
+            if config.teams_dict.get(team):
+                self.teams_involved[self.teams_involved.index(team)] = config.teams_dict.get(team)
         assert len(self.teams_involved) > 0, 'No SuperSix fixtures found'
         
     def filter_xg_data(self, season_start_years=['2019', '2020'], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):

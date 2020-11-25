@@ -14,5 +14,15 @@ cwbd_path = r'C:\Users\Prasanth\chromedriver.exe'
 usrn = 'penstrep'
 pno = '251614'
 
-# Team name replacements 
-replace_list = {'Man City': 'Manchester City', 'Man Utd': 'Manchester United', 'Nottm Forest': 'Nottingham Forest', 'Sheff Utd': 'Sheffield United', 'Oxford Utd': 'Oxford United', 'Brighton': 'Brighton and Hove Albion', 'Leicester': 'Leicester City', 'Norwich': 'Norwich City', 'West Ham': 'West Ham United', 'Leeds': 'Leeds United', 'Cardiff': 'Cardiff City', 'Sheff Wed': 'Sheffield Wednesday', 'Inter Milan': 'Internazionale', 'Huddersfield': 'Huddersfield Town', 'West Brom': 'West Bromwich Albion', 'Charlton': 'Charlton Athletic', 'QPR': 'Queens Park Rangers', 'Stoke': 'Stoke City', 'PSG':'Paris Saint-Germain'}
+# Team name changes
+from pathlib import Path
+
+path = Path(__file__).parent.parent.parent
+ext = "/data/resources/team_name_changes.csv"
+path = Path(str(path) + ext)
+
+teams_dict = {}
+with path.open() as f:
+    for line in f:
+        (key, val) = line.rstrip('\n').split(sep=',')
+        teams_dict[key] = val
