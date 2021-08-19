@@ -8,11 +8,11 @@ understat_url = "https://understat.com/league/EPL"
 supersix_url = 'https://super6.skysports.com/play'
 
 # local chrome webdriver executable path 
-cwbd_path = r'C:\Users\Prasanth\chromedriver.exe' 
+cwbd_path = r'/usr/bin/chromedriver' 
 
 # Supersix login data
 usrn = 'penstrep'
-pno = '251614'
+pno = '2516'
 
 # Team name changes
 from pathlib import Path

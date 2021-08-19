@@ -28,14 +28,14 @@ class xg_dataset:
         self.xg['date'] = pd.to_datetime(self.xg['date'], format='%Y-%m-%d')
         self.all_leagues = pd.Series(self.xg['league']).unique()
         
-    def dataset_filter(self, xg_dataset=None, season_start_years=['2019', '2020'], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):
+    def dataset_filter(self, xg_dataset=None, season_start_years=[2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):
         if not xg_dataset:
             xg_dataset = self.xg
         filt_xg = xg_dataset[xg_dataset['league'].isin(list_of_leagues)]
         filt_xg = filt_xg[filt_xg['season'].isin(season_start_years)]
         return filt_xg
 
-    def season_details(self, season_start_years=['2019', '2020'], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):
+    def season_details(self, season_start_years=[2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):
         """Applies league and season date filters for 538 per-match statistics
         Calculates season-average xG, xGA, and difference for each team in the dataset
         Creates separate dataframes for completed and to-be-completed matches within dataset

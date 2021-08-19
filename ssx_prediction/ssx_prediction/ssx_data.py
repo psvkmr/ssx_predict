@@ -43,7 +43,7 @@ class supersix(xg_data.xg_dataset):
                 self.teams_involved[self.teams_involved.index(team)] = config.teams_dict.get(team)
         assert len(self.teams_involved) > 0, 'No SuperSix fixtures found'
         
-    def filter_xg_data(self, season_start_years=['2019', '2020'], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):
+    def filter_xg_data(self, season_start_years=[2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):
         self.filt_xg = self.dataset_filter(season_start_years=season_start_years, list_of_leagues=list_of_leagues)
 
     def get_ss_stats(self):
