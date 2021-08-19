@@ -1,7 +1,8 @@
-# Data/results files
-data/
+# Results files
+data/results
+notebooks/
 
-# binary
+# binaries
 *.deb
 
 # Admin warning message
