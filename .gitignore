@@ -1,6 +1,9 @@
 # Data/results files
 data/
 
+# binary
+*.deb
+
 # Admin warning message
 .nonadmin
 

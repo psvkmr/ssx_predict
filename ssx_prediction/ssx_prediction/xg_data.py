@@ -39,7 +39,7 @@ class xg_dataset:
         filt_xg = self.xg[self.xg['league'].isin(list_of_leagues)]
         return filt_xg
 
-    def season_details(self, season_start='2019-08-03', list_of_leagues=['Barclays Premier League']):
+    def season_details(self, season_start='2019-08-13', list_of_leagues=['Barclays Premier League']):
         """Applies league and season date filters for 538 per-match statistics
         Calculates season-average xG, xGA, and difference for each team in the dataset
         Creates separate dataframes for completed and to-be-completed matches within dataset

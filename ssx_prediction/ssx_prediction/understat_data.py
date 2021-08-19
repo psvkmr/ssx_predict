@@ -19,7 +19,7 @@ class understat_data:
         ut_url = "https://understat.com/league/EPL"
         options = webdriver.ChromeOptions()
         options.add_argument("headless")
-        driver = webdriver.Chrome(executable_path=r'C:\Users\Prasanth\chromedriver.exe', options=options)
+        driver = webdriver.Chrome(executable_path=r'/usr/bin/chromedriver', options=options)
         driver.get(ut_url)
         self.ut_soup = BeautifulSoup(driver.page_source, 'html.parser')
 

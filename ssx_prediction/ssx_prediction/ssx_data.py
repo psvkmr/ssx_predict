@@ -23,20 +23,20 @@ class supersix(xg_data.xg_dataset):
         self.ss_url = 'https://super6.skysports.com/play'
         options = webdriver.ChromeOptions()
         options.add_argument('headless')
-        self.driver = webdriver.Chrome('C:/Users/Prasanth/chromedriver.exe', options=options)
+        self.driver = webdriver.Chrome('/usr/bin/chromedriver', options=options)
         self.driver.get(self.ss_url)
         self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 
     def login(self):
         self.driver.find_element_by_id('username').send_keys('penstrep')
-        self.driver.find_element_by_id('pin').send_keys('251614')
+        self.driver.find_element_by_id('pin').send_keys('2516')
         sleep(2)
         self.driver.find_element_by_class_name('_vykkzu').click()
 
     def ss_fixtures(self):
         self.driver.get(self.ss_url)
         self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
-        fixtures = self.ss_soup.findAll('div', attrs={'class': 'css-c7kzt el5lbu01'})
+        fixtures = self.ss_soup.findAll('div', attrs={'class': 'css-1vwq6t3 el5lbu01'})
         self.teams_involved = [team.get_text(strip=True) for team in fixtures]
         for old,new in self.replace_list:
             if old in self.teams_involved:
