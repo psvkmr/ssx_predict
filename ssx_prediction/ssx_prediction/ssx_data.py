@@ -4,6 +4,10 @@ from selenium import webdriver
 from time import sleep
 import xg_data
 import config
+import numpy as np
+from scipy.stats import poisson,skellam
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
 
 class supersix(xg_data.xg_dataset):
     """Import of list of fixtures to be predicted, from the supersix website
@@ -43,7 +47,7 @@ class supersix(xg_data.xg_dataset):
                 self.teams_involved[self.teams_involved.index(team)] = config.teams_dict.get(team)
         assert len(self.teams_involved) > 0, 'No SuperSix fixtures found'
         
-    def filter_xg_data(self, season_start_years=[2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):
+    def filter_xg_data(self, season_start_years=[2017, 2018, 2019, 2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):
         self.filt_xg = self.dataset_filter(season_start_years=season_start_years, list_of_leagues=list_of_leagues)
 
     def get_ss_stats(self):
@@ -63,33 +67,42 @@ class supersix(xg_data.xg_dataset):
 
         #dummy teams involved
         #self.teams_involved = ['Burnley', 'Everton', 'Liverpool', 'Leicester City', 'Norwich City', 'Aston Villa', 'Watford', 'Sheffield United', 'Nottingham Forest', 'Brentford', 'West Bromwich Albion', 'Cardiff City']
-
-        self.fixtures_xg = pd.DataFrame({'home':self.teams_involved[::2], 'away':self.teams_involved[1::2]})
-        home_for_xg, home_for_sd, home_against_xg, home_against_sd, away_for_xg, away_for_sd, away_against_xg, away_against_sd = [],[],[],[],[],[],[],[]
-        for i in range(len(self.fixtures_xg)):
-            hf = self.filt_xg[self.filt_xg['team1'] == self.fixtures_xg['home'][i]]['xg1'].mean()
-            hfsd = self.filt_xg[self.filt_xg['team1'] == self.fixtures_xg['home'][i]]['xg1'].std()
-            ha = self.filt_xg[self.filt_xg['team1'] == self.fixtures_xg['home'][i]]['xg2'].mean()
-            hasd = self.filt_xg[self.filt_xg['team1'] == self.fixtures_xg['home'][i]]['xg2'].std()
-            af = self.filt_xg[self.filt_xg['team2'] == self.fixtures_xg['away'][i]]['xg2'].mean()
-            afsd = self.filt_xg[self.filt_xg['team2'] == self.fixtures_xg['away'][i]]['xg2'].std()
-            aa = self.filt_xg[self.filt_xg['team2'] == self.fixtures_xg['away'][i]]['xg1'].mean()
-            aasd = self.filt_xg[self.filt_xg['team2'] == self.fixtures_xg['away'][i]]['xg1'].std()
-            home_for_xg.append(hf)
-            home_for_sd.append(hfsd)
-            home_against_xg.append(ha)
-            home_against_sd.append(hasd)
-            away_for_xg.append(af)
-            away_for_sd.append(afsd)
-            away_against_xg.append(aa)
-            away_against_sd.append(aasd)
-        self.fixtures_xg = self.fixtures_xg.assign(home_for_xg=home_for_xg, home_for_sd=home_for_sd, home_against_xg=home_against_xg, home_against_sd=home_against_sd, away_for_xg=away_for_xg, away_for_sd=away_for_sd, away_against_xg=away_against_xg, away_against_sd=away_against_sd)
-        self.fixtures_xg[['home_for_sd', 'home_against_sd', 'away_for_sd', 'away_against_sd']] = self.fixtures_xg[['home_for_sd', 'home_against_sd', 'away_for_sd', 'away_against_sd']].fillna(0)
-        self.fixtures_xg['home_xg'] = ((self.fixtures_xg['away_against_sd'] / (self.fixtures_xg['away_against_sd'] + self.fixtures_xg['home_for_sd'])) * self.fixtures_xg['home_for_xg']) + ((self.fixtures_xg['home_for_sd'] / (self.fixtures_xg['away_against_sd'] + self.fixtures_xg['home_for_sd'])) * self.fixtures_xg['away_against_xg'])
-        self.fixtures_xg['away_xg'] = ((self.fixtures_xg['home_against_sd'] / (self.fixtures_xg['home_against_sd'] + self.fixtures_xg['away_for_sd'])) * self.fixtures_xg['away_for_xg']) + ((self.fixtures_xg['away_for_sd'] / (self.fixtures_xg['home_against_sd'] + self.fixtures_xg['away_for_sd'])) * self.fixtures_xg['home_against_xg'])
-        self.prediction_table = self.fixtures_xg[['home', 'away','home_xg', 'away_xg']]
-        self.prediction_table = self.prediction_table.round({'home_xg':0, 'away_xg':0})
-
+        
+        self.fixtures_model = pd.concat([self.filt_xg[['team1', 'team2', 'xg1']].assign(home=1).rename(
+            columns={'team1':'team', 'team2':'opponent', 'xg1':'goals'}), 
+            self.filt_xg[['team2', 'team1', 'xg2']].assign(home=0).rename(
+                columns={'team2':'team', 'team1':'opponent', 'xg2':'goals'})])
+        self.poisson_model = smf.glm(formula='goals ~ home + team + opponent', 
+                                     data=self.fixtures_model, 
+                                     family=sm.families.Poisson()).fit()
+        self.poisson_summary = self.poisson_model.summary()
+        
+        def simulate_match(foot_model, homeTeam, awayTeam, max_goals=3):
+            home_goals_avg = foot_model.predict(pd.DataFrame(data={'team': homeTeam, 
+                                                                    'opponent': awayTeam,'home':1},
+                                                              index=[1])).values[0]
+            away_goals_avg = foot_model.predict(pd.DataFrame(data={'team': awayTeam, 
+                                                                    'opponent': homeTeam,'home':0},
+                                                              index=[1])).values[0]
+            team_pred = [[poisson.pmf(i, team_avg) for i in range(0, max_goals+1)] for team_avg in [home_goals_avg, away_goals_avg]]
+            return(np.outer(np.array(team_pred[0]), np.array(team_pred[1])))
+        
+        self.fixtures_predict = pd.DataFrame({'home':self.teams_involved[::2], 'away':self.teams_involved[1::2]})
+        self.score_arrays = []
+        scores = []
+        for i in range(len(self.fixtures_predict)):
+            score_array = simulate_match(foot_model = self.poisson_model, 
+                                         homeTeam = self.fixtures_predict.iloc[i, ]['home'], 
+                                         awayTeam = self.fixtures_predict.iloc[i, ]['away'])
+            self.score_arrays.append(score_array)
+            score = np.where(score_array == score_array.max())
+            home_goals = score[0][0]
+            away_goals = score[1][0]
+            score = f'{home_goals}-{away_goals}'
+            scores.append(score)
+        self.fixtures_predict['results']=scores
+        
+        
 if __name__ == '__main__':
     ss = supersix()
     ss.login()
