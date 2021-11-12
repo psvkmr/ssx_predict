@@ -19,7 +19,7 @@ class xg_dataset:
     """
 
     def __init__(self):
-        """Initialises xg_data class object.
+        """Initialises xg_dataset class object.
         Returns attributes:
             xg: CSV file with 538 per-match statistical analysis from config.py URL
             all_leagues: Every league with per-match statistical analysis available in 538 dataset
@@ -29,6 +29,14 @@ class xg_dataset:
         self.all_leagues = pd.Series(self.xg['league']).unique()
         
     def dataset_filter(self, xg_dataset=None, season_start_years=[2017, 2018, 2019, 2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):
+        """Fitlers xG dataset provided by season year and league name
+        Args:
+            season_start_years (Optional)
+            list_of_leagues (Optional)
+        Returns attributes:
+            xg: xG dataset filtered by season year and league name
+            all_leagues: list of leagues present in filtered xG dataset
+        """
         if not xg_dataset:
             xg_dataset = self.xg
         filt_xg = xg_dataset[xg_dataset['league'].isin(list_of_leagues)]
