@@ -5,7 +5,7 @@ from time import sleep
 import xg_data
 import config
 import numpy as np
-from scipy.stats import poisson,skellam
+from scipy.stats import poisson
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
@@ -23,6 +23,13 @@ class supersix(xg_data.xg_dataset):
     """
 
     def __init__(self):
+        """Initialises supersix class object, sets SuperSix game URL from config file, 
+        sets Google Chrome web import parameters, imports SuperSix html data
+        Returns:
+            ss_url: URL for SuperSix games 
+            driver: Google Chrome Webdriver path and settings
+            ss_soup: Text imported from SuperSix gameweek html site page
+        """
         super().__init__()
         self.ss_url = config.supersix_url
         options = webdriver.ChromeOptions()
@@ -32,12 +39,23 @@ class supersix(xg_data.xg_dataset):
         self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 
     def login(self):
+        """Logs in to SuperSix website using username and password set in config file
+        """
         self.driver.find_element_by_id('username').send_keys(config.usrn)
         self.driver.find_element_by_id('pin').send_keys(config.pno)
         sleep(2)
         self.driver.find_element_by_class_name('_vykkzu').click()
 
     def ss_fixtures(self):
+        """Extracts gameweek fixtures from imported SuperSix site html content, 
+        extracts team names involved in fixtures. If team name in SuperSix data is known to 
+        be different to the same team's name in xG dataset, then replaces SuperSix team name 
+        with xG dataset team name when filtering xG data for team statistics. 
+        If no team names are extracted from SuperSix site html data, throws an error
+        Returns:
+            ss_soup: Text content from SuperSix gameweek html site
+            teams_involved: Team names involved in gameweek fixtures as extracted from ss_soup
+        """
         self.driver.get(self.ss_url)
         self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
         fixtures = self.ss_soup.findAll('div', attrs={'class': 'css-1vwq6t3 el5lbu01'})
@@ -48,6 +66,13 @@ class supersix(xg_data.xg_dataset):
         assert len(self.teams_involved) > 0, 'No SuperSix fixtures found'
         
     def filter_xg_data(self, season_start_years=[2017, 2018, 2019, 2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):
+        """Filters xG dataset by season years to include, and list of leagues to use
+        Args:
+            season_start_years (Optional)
+            list_of_leagues (Optional)
+        Returns:
+            filt_xg: xg Dataset filtered by season years and list of leagues to include
+        """
         self.filt_xg = self.dataset_filter(season_start_years=season_start_years, list_of_leagues=list_of_leagues)
 
     def get_ss_stats(self):
