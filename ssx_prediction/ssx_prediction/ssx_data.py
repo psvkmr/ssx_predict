@@ -1,15 +1,15 @@
 import pandas as pd
 from bs4 import BeautifulSoup
-from selenium import webdriver
 from time import sleep
 import xg_data
 import config
+import first_goal
 import numpy as np
 from scipy.stats import poisson
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
-class supersix(xg_data.xg_dataset):
+class supersix(xg_data.xg_dataset, first_goal.first_goal):
     """Import of list of fixtures to be predicted, from the supersix website
     Attributes:
         ss_soup: HTML data from supersix website parsed with BeautifulSoup
@@ -31,16 +31,18 @@ class supersix(xg_data.xg_dataset):
             ss_soup: Text imported from SuperSix gameweek html site page
         """
         super().__init__()
-        self.ss_url = config.supersix_url
-        options = webdriver.ChromeOptions()
-        options.add_argument('headless')
-        self.driver = webdriver.Chrome(config.cwbd_path, options=options)
-        self.driver.get(self.ss_url)
-        self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+        self.driver = config.driver
+        
+    def fg_extract(self):
+        self.fg_data = self.get_fg_data()
+        self.fg_data = self.extract_fg_data()
 
-    def login(self):
+    def ss_login(self):
         """Logs in to SuperSix website using username and password set in config file
         """
+        self.ss_url = config.supersix_url
+        self.driver.get(self.ss_url)
+        self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
         self.driver.find_element_by_id('username').send_keys(config.usrn)
         self.driver.find_element_by_id('pin').send_keys(config.pno)
         sleep(2)
@@ -64,7 +66,7 @@ class supersix(xg_data.xg_dataset):
             if config.teams_dict.get(team):
                 self.teams_involved[self.teams_involved.index(team)] = config.teams_dict.get(team)
         assert len(self.teams_involved) > 0, 'No SuperSix fixtures found'
-        
+          
     def filter_xg_data(self, season_start_years=[2017, 2018, 2019, 2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):
         """Filters xG dataset by season years to include, and list of leagues to use
         Args:
@@ -74,19 +76,34 @@ class supersix(xg_data.xg_dataset):
             filt_xg: xg Dataset filtered by season years and list of leagues to include
         """
         self.filt_xg = self.dataset_filter(season_start_years=season_start_years, list_of_leagues=list_of_leagues)
+        
+    def convert_team_names(self):
+        class InvalidTeamException(Exception):
+            pass
+
+        def SuperSixTeamException():
+            all_teams = pd.concat([self.filt_xg['team1'], self.filt_xg['team2']]).unique()
+            for team in self.teams_involved:
+                if not team in all_teams:
+                    raise InvalidTeamException(f'Team {team} from SuperSix does not exist in xG dataset')
+        try:
+            SuperSixTeamException()
+            print('All SuperSix Teams exist in xG dataset')
+        except InvalidTeamException as obj:
+            print(obj)
 
     def get_ss_stats(self):
         class InvalidTeamException(Exception):
             pass
-
+      
         def TeamException():
             all_teams = pd.concat([self.filt_xg['team1'], self.filt_xg['team2']]).unique()
             for team in self.teams_involved:
                 if not team in all_teams:
-                    raise InvalidTeamException(f'Team {team} does not exist in xG dataset')
+                    raise InvalidTeamException(f'Team {team} from SuperSix does not exist in xG dataset')
         try:
             TeamException()
-            print('All Teams exist in xG dataset')
+            print('All SuperSix Teams exist in xG dataset')
         except InvalidTeamException as obj:
             print(obj)
 
@@ -101,7 +118,7 @@ class supersix(xg_data.xg_dataset):
                                      data=self.fixtures_model, 
                                      family=sm.families.Poisson()).fit()
         self.poisson_summary = self.poisson_model.summary()
-        
+
         def simulate_match(foot_model, homeTeam, awayTeam, max_goals=3):
             home_goals_avg = foot_model.predict(pd.DataFrame(data={'team': homeTeam, 
                                                                     'opponent': awayTeam,'home':1},
@@ -130,8 +147,10 @@ class supersix(xg_data.xg_dataset):
         
 if __name__ == '__main__':
     ss = supersix()
-    ss.login()
-    sleep(2)
-    ss.ss_fixtures()
-    ss.filter_xg_data()
-    ss.get_ss_stats()
+#    ss.get_fg_data()
+    ss.fg_extract()
+#    ss.login()
+#    sleep(2)
+#    ss.ss_fixtures()
+#    ss.filter_xg_data()
+#    ss.get_ss_stats()
