@@ -1,6 +1,5 @@
 import pandas as pd
 from bs4 import BeautifulSoup
-from selenium import webdriver
 import config
 
 class understat_data:
@@ -17,9 +16,7 @@ class understat_data:
         Returns attributes:
             ut_soup: Table data from understat parsed using BeautifulSoup
         """
-        options = webdriver.ChromeOptions()
-        options.add_argument("headless")
-        driver = webdriver.Chrome(executable_path=config.cwbd_path, options=options)
+        driver = config.driver
         driver.get(config.understat_url)
         self.ut_soup = BeautifulSoup(driver.page_source, 'html.parser')
 
