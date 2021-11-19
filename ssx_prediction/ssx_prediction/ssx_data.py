@@ -62,12 +62,9 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
         self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
         fixtures = self.ss_soup.findAll('div', attrs={'class': 'css-1vwq6t3 el5lbu01'})
         self.teams_involved = [team.get_text(strip=True) for team in fixtures]
-        for team in self.teams_involved:
-            if config.teams_dict.get(team):
-                self.teams_involved[self.teams_involved.index(team)] = config.teams_dict.get(team)
         assert len(self.teams_involved) > 0, 'No SuperSix fixtures found'
           
-    def filter_xg_data(self, season_start_years=[2017, 2018, 2019, 2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):
+    def filter_xg_data(self, season_start_years=[2017, 2018, 2019, 2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'UEFA Europa League', 'English League One', 'English League Two']):
         """Filters xG dataset by season years to include, and list of leagues to use
         Args:
             season_start_years (Optional)
@@ -78,6 +75,15 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
         self.filt_xg = self.dataset_filter(season_start_years=season_start_years, list_of_leagues=list_of_leagues)
         
     def convert_team_names(self):
+        for team in self.teams_involved:
+            if config.teams_dict.get(team):
+                self.teams_involved[self.teams_involved.index(team)] = config.teams_dict.get(team)
+                
+        for team in list(self.fg_dict.keys()):
+            if config.teams_dict.get(team):
+                self.fg_dict[config.teams_dict.get(team)] = self.fg_dict.pop(team)
+                
+    def check_team_names(self):
         class InvalidTeamException(Exception):
             pass
 
@@ -91,22 +97,30 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
             print('All SuperSix Teams exist in xG dataset')
         except InvalidTeamException as obj:
             print(obj)
-
-    def get_ss_stats(self):
-        class InvalidTeamException(Exception):
-            pass
-      
-        def TeamException():
+            
+        def FirstGoalTeamException():
             all_teams = pd.concat([self.filt_xg['team1'], self.filt_xg['team2']]).unique()
-            for team in self.teams_involved:
-                if not team in all_teams:
-                    raise InvalidTeamException(f'Team {team} from SuperSix does not exist in xG dataset')
+            for team in list(self.fg_dict.keys()):
+                if not team in all_teams and team != 'Average':
+                    raise InvalidTeamException(f'Team {team} from First Goal data does not exist in xG dataset')
         try:
-            TeamException()
-            print('All SuperSix Teams exist in xG dataset')
+            FirstGoalTeamException()
+            print('All First Goal Teams exist in xG dataset')
         except InvalidTeamException as obj:
             print(obj)
-
+            
+    def predict_first_goal(self):
+        self.teams_involved = ['Burn', 'Everton', 'Liverpool', 'Leicester City', 'Norwich City', 'Aston Villa', 'Watford', 'Sheffield United', 'Nottingham Forest', 'Brentford', 'West Bromwich Albion', 'Cardiff City']
+        #teams_copy = self.teams_involved[:]
+        self.first_goal_mins = [self.fg_dict['Average'] if not team in list(self.fg_dict.keys()) else self.fg_dict[team] for team in self.teams_involved]
+        #for team in teams_copy:
+        #    if not team in list(self.fg_dict.keys()):
+        #        print(team)
+        #        teams_copy[team] == 'Average'
+        #self.first_goal_min = min([self.fg_dict[team] for team in teams_copy])
+        self.first_goal_min = min(self.first_goal_mins)
+        
+    def get_ss_stats(self):
         #dummy teams involved
         #self.teams_involved = ['Burnley', 'Everton', 'Liverpool', 'Leicester City', 'Norwich City', 'Aston Villa', 'Watford', 'Sheffield United', 'Nottingham Forest', 'Brentford', 'West Bromwich Albion', 'Cardiff City']
         
@@ -147,10 +161,12 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
         
 if __name__ == '__main__':
     ss = supersix()
-#    ss.get_fg_data()
     ss.fg_extract()
-#    ss.login()
-#    sleep(2)
-#    ss.ss_fixtures()
-#    ss.filter_xg_data()
-#    ss.get_ss_stats()
+    ss.ss_login()
+    sleep(2)
+    ss.ss_fixtures()
+    ss.filter_xg_data()
+    ss.convert_team_names()
+    ss.check_team_names()
+    ss.predict_first_goal()
+    ss.get_ss_stats()
