@@ -28,7 +28,7 @@ class xg_dataset:
         self.xg['date'] = pd.to_datetime(self.xg['date'], format='%Y-%m-%d')
         self.all_leagues = pd.Series(self.xg['league']).unique()
         
-    def dataset_filter(self, xg_dataset=None, season_start_years=[2017, 2018, 2019, 2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):
+    def dataset_filter(self, xg_dataset=None, season_start_years=[2017, 2018, 2019, 2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'UEFA Europa League', 'English League One', 'English League Two']):
         """Fitlers xG dataset provided by season year and league name
         Args:
             season_start_years (Optional)
@@ -44,7 +44,7 @@ class xg_dataset:
         filt_xg = filt_xg[filt_xg['date'] < pd.Timestamp(datetime.date.today())]
         return filt_xg
 
-    def season_details(self, season_start_years=[2017, 2018, 2019, 2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'English League One', 'English League Two']):
+    def season_details(self, season_start_years=[2020, 2021], list_of_leagues=['Barclays Premier League']):
         """Applies league and season date filters for 538 per-match statistics
         Calculates season-average xG, xGA, and difference for each team in the dataset
         Creates separate dataframes for completed and to-be-completed matches within dataset
