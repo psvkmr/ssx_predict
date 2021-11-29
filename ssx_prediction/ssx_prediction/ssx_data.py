@@ -43,9 +43,12 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
         self.ss_url = config.supersix_url
         self.driver.get(self.ss_url)
         self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
-        self.driver.find_element_by_id('username').send_keys(config.usrn)
-        self.driver.find_element_by_id('pin').send_keys(config.pno)
-        sleep(2)
+        try:
+            self.driver.find_element_by_id('username').send_keys(config.usrn)
+            self.driver.find_element_by_id('pin').send_keys(config.pno)
+            sleep(2)
+        except:
+            pass
         self.driver.find_element_by_class_name('_vykkzu').click()
 
     def ss_fixtures(self):
@@ -110,14 +113,7 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
             print(obj)
             
     def predict_first_goal(self):
-        self.teams_involved = ['Burn', 'Everton', 'Liverpool', 'Leicester City', 'Norwich City', 'Aston Villa', 'Watford', 'Sheffield United', 'Nottingham Forest', 'Brentford', 'West Bromwich Albion', 'Cardiff City']
-        #teams_copy = self.teams_involved[:]
         self.first_goal_mins = [self.fg_dict['Average'] if not team in list(self.fg_dict.keys()) else self.fg_dict[team] for team in self.teams_involved]
-        #for team in teams_copy:
-        #    if not team in list(self.fg_dict.keys()):
-        #        print(team)
-        #        teams_copy[team] == 'Average'
-        #self.first_goal_min = min([self.fg_dict[team] for team in teams_copy])
         self.first_goal_min = min(self.first_goal_mins)
         
     def get_ss_stats(self):
