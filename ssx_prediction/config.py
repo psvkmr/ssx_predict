@@ -28,7 +28,7 @@ pno = '2516'
 # Team name changes
 from pathlib import Path
 
-path = Path(__file__).parent.parent.parent
+path = Path(__file__).parent.parent
 ext = "/data/resources/team_name_changes.csv"
 path = Path(str(path) + ext)
 
