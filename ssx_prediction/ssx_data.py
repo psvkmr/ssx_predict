@@ -124,6 +124,9 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
             columns={'team1':'team', 'team2':'opponent', 'xg1':'goals'}), 
             self.filt_xg[['team2', 'team1', 'xg2']].assign(home=0).rename(
                 columns={'team2':'team', 'team1':'opponent', 'xg2':'goals'})])
+        self.fixtures_model = self.fixtures_model[self.fixtures_model['team'].isin(self.teams_involved) | 
+                                                  self.fixtures_model['opponent'].isin(self.teams_involved)]
+        
         self.poisson_model = smf.glm(formula='goals ~ home + team + opponent', 
                                      data=self.fixtures_model, 
                                      family=sm.families.Poisson()).fit()
