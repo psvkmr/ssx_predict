@@ -117,21 +117,21 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
         self.first_goal_mins = [self.fg_dict['Average'] if not team in list(self.fg_dict.keys()) else self.fg_dict[team] for team in self.teams_involved]
         self.first_goal_min = min(self.first_goal_mins)
 
-    def get_ss_stats(self):
+    def fixture_based_predict(self):
         #dummy teams involved
         #self.teams_involved = ['Burnley', 'Everton', 'Liverpool', 'Leicester City', 'Norwich City', 'Aston Villa', 'Watford', 'Sheffield United', 'Nottingham Forest', 'Brentford', 'West Bromwich Albion', 'Cardiff City']
 
-        self.fixtures_model = pd.concat([self.filt_xg[['team1', 'team2', 'xg1']].assign(home=1).rename(
+        self.fb_teams_results = pd.concat([self.filt_xg[['team1', 'team2', 'xg1']].assign(home=1).rename(
             columns={'team1':'team', 'team2':'opponent', 'xg1':'goals'}),
             self.filt_xg[['team2', 'team1', 'xg2']].assign(home=0).rename(
                 columns={'team2':'team', 'team1':'opponent', 'xg2':'goals'})])
-        self.fixtures_model = self.fixtures_model[self.fixtures_model['team'].isin(self.teams_involved) |
-                                                  self.fixtures_model['opponent'].isin(self.teams_involved)]
+        self.fb_teams_results = self.fb_teams_results[self.fb_teams_results['team'].isin(self.teams_involved) |
+                                                  self.fb_teams_results['opponent'].isin(self.teams_involved)]
 
-        self.poisson_model = smf.glm(formula='goals ~ home + team + opponent',
-                                     data=self.fixtures_model,
+        self.fb_poisson_model = smf.glm(formula='goals ~ home + team + opponent',
+                                     data=self.fb_teams_results,
                                      family=sm.families.Poisson()).fit()
-        self.poisson_summary = self.poisson_model.summary()
+        self.fb_poisson_summary = self.fb_poisson_model.summary()
 
         def simulate_match(foot_model, homeTeam, awayTeam, max_goals=3):
             home_goals_avg = foot_model.predict(pd.DataFrame(data={'team': homeTeam,
@@ -143,77 +143,77 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
             team_pred = [[poisson.pmf(i, team_avg) for i in range(0, max_goals+1)] for team_avg in [home_goals_avg, away_goals_avg]]
             return(np.outer(np.array(team_pred[0]), np.array(team_pred[1])))
 
-        self.fixtures_predict = pd.DataFrame({'home':self.teams_involved[::2], 'away':self.teams_involved[1::2]})
-        self.score_arrays = []
+        self.fb_results_table = pd.DataFrame({'home':self.teams_involved[::2], 'away':self.teams_involved[1::2]})
+        score_arrays = []
         scores = []
-        for i in range(len(self.fixtures_predict)):
-            score_array = simulate_match(foot_model = self.poisson_model,
-                                         homeTeam = self.fixtures_predict.iloc[i, ]['home'],
-                                         awayTeam = self.fixtures_predict.iloc[i, ]['away'])
-            self.score_arrays.append(score_array)
+        for i in range(len(self.fb_results_table)):
+            score_array = simulate_match(foot_model = self.fb_poisson_model,
+                                         homeTeam = self.fb_results_table.iloc[i, ]['home'],
+                                         awayTeam = self.fb_results_table.iloc[i, ]['away'])
+            score_arrays.append(score_array)
             score = np.where(score_array == score_array.max())
             home_goals = score[0][0]
             away_goals = score[1][0]
             score = f'{home_goals}-{away_goals}'
             scores.append(score)
-        self.fixtures_predict['results']=scores
+        self.fb_results_table['results']=scores
 
-    def season_model(self):
-        self.season_model = self.filt_xg[(self.filt_xg['team1'].isin(self.teams_involved)) | (self.filt_xg['team2'].isin(self.teams_involved))][['team1', 'team2', 'xg1', 'xg2']]
+    def season_based_predict(self):
+        self.sb_teams_results = self.filt_xg[(self.filt_xg['team1'].isin(self.teams_involved)) | (self.filt_xg['team2'].isin(self.teams_involved))][['team1', 'team2', 'xg1', 'xg2']]
 
-        home_team_avg=self.season_model['xg1'].mean()
-        away_team_avg=self.season_model['xg2'].mean()
+        home_team_avg=self.sb_teams_results['xg1'].mean()
+        away_team_avg=self.sb_teams_results['xg2'].mean()
 
-        self.team_avg={}
+        self.sb_team_avg={}
         for team in self.teams_involved:
-            home_goals_for = self.season_model[self.season_model['team1']==team]['xg1'].mean()
-            home_goals_against = self.season_model[self.season_model['team1']==team]['xg2'].mean()
-            away_goals_for = self.season_model[self.season_model['team2']==team]['xg2'].mean()
-            away_goals_against = self.season_model[self.season_model['team2']==team]['xg1'].mean()
+            home_goals_for = self.sb_teams_results[self.sb_teams_results['team1']==team]['xg1'].mean()
+            home_goals_against = self.sb_teams_results[self.sb_teams_results['team1']==team]['xg2'].mean()
+            away_goals_for = self.sb_teams_results[self.sb_teams_results['team2']==team]['xg2'].mean()
+            away_goals_against = self.sb_teams_results[self.sb_teams_results['team2']==team]['xg1'].mean()
             team_dct={'home_for': home_goals_for, 'home_against': home_goals_against,
                       'away_for': away_goals_for, 'away_against': away_goals_against}
-            self.team_avg.update({team: team_dct})
+            self.sb_team_avg.update({team: team_dct})
 
-        self.team_power={}
+        self.sb_team_power={}
         for team in self.teams_involved:
-            home_att_pwr = self.team_avg[team]['home_for']/home_team_avg
-            home_def_pwr = self.team_avg[team]['home_against']/away_team_avg
-            away_att_pwr = self.team_avg[team]['away_for']/away_team_avg
-            away_def_pwr = self.team_avg[team]['away_against']/home_team_avg
+            home_att_pwr = self.sb_team_avg[team]['home_for']/home_team_avg
+            home_def_pwr = self.sb_team_avg[team]['home_against']/away_team_avg
+            away_att_pwr = self.sb_team_avg[team]['away_for']/away_team_avg
+            away_def_pwr = self.sb_team_avg[team]['away_against']/home_team_avg
             team_dct={'home_att_pwr': home_att_pwr, 'home_def_pwr': home_def_pwr,
                       'away_att_pwr': away_att_pwr, 'away_def_pwr': away_def_pwr}
-            self.team_power.update({team: team_dct})
+            self.sb_team_power.update({team: team_dct})
 
-        self.predicted={}
+        self.sb_expected_average={}
         for i in range(0, 12, 2):
-            home_score = self.team_power[self.teams_involved[i]]['home_att_pwr'] * self.team_power[self.teams_involved[i+1]]['away_def_pwr'] * home_team_avg
-            away_score = self.team_power[self.teams_involved[i+1]]['away_att_pwr'] * self.team_power[self.teams_involved[i+1]]['home_def_pwr'] * away_team_avg
+            home_score = self.sb_team_power[self.teams_involved[i]]['home_att_pwr'] * self.sb_team_power[self.teams_involved[i+1]]['away_def_pwr'] * home_team_avg
+            away_score = self.sb_team_power[self.teams_involved[i+1]]['away_att_pwr'] * self.sb_team_power[self.teams_involved[i+1]]['home_def_pwr'] * away_team_avg
             score = {self.teams_involved[i]: home_score, self.teams_involved[i+1]: away_score}
-            self.predicted.update(score)
+            self.sb_expected_average.update(score)
 
         def poisson_probability(l, x):
             probability = ((l**x) * exp(-l)) / factorial(x)
             return probability*100
 
-        self.scores={}
-        for team in list(self.predicted.keys()):
+        self.sb_scores_range={}
+        for team in list(self.sb_expected_average.keys()):
             gs_goals_prob = []
             for i in range(4):
-                expect = poisson_probability(self.predicted[team], i)
+                expect = poisson_probability(self.sb_expected_average[team], i)
                 gs_goals_prob.append(expect)
             score = np.argmax(gs_goals_prob)
-            self.scores.update({team: score})
+            self.sb_scores_range.update({team: score})
 
-        home_teams = list(self.scores.keys())[::2]
-        away_teams = list(self.scores.keys())[1::2]
-        home_scored = list(self.scores.values())[::2]
-        away_scored = list(self.scores.values())[1::2]
+        home_teams = list(self.sb_scores_range.keys())[::2]
+        away_teams = list(self.sb_scores_range.keys())[1::2]
+        home_scored = list(self.sb_scores_range.values())[::2]
+        away_scored = list(self.sb_scores_range.values())[1::2]
         scorelines = []
         for i in range(len(home_scored)):
             scores = f'{home_scored[i]}-{away_scored[i]}'
             scorelines.append(scores)
 
-        self.results_table = pd.DataFrame({'home': home_teams,
+        self.sb_results_table = pd.DataFrame({'home': home_teams,
                                          'away': away_teams,
                                          'results': scorelines})
 
@@ -229,5 +229,5 @@ if __name__ == '__main__':
     ss.convert_team_names()
     ss.check_team_names()
     ss.predict_first_goal()
-    ss.get_ss_stats()
-    ss.season_model()
+    ss.fixture_based_predict()
+    ss.season_based_predict()
