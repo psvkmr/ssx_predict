@@ -47,11 +47,16 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
         try:
             self.driver.find_element_by_id('username').send_keys(config.usrn)
             self.driver.find_element_by_id('pin').send_keys(config.pno)
+            print('Logging in...')
             sleep(2)
         except:
             pass
-        self.driver.find_element_by_class_name('_vykkzu').click()
-
+        try:
+            self.driver.find_element_by_class_name('_vykkzu').click()
+            print('Logged in')
+        except:
+            print('Cannot log in')
+             
     def ss_fixtures(self):
         """Extracts gameweek fixtures from imported SuperSix site html content,
         extracts team names involved in fixtures. If team name in SuperSix data is known to
@@ -64,9 +69,10 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
         """
         self.driver.get(self.ss_url)
         self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
-        fixtures = self.ss_soup.findAll('div', attrs={'class': 'css-1vwq6t3 el5lbu01'})
+        fixtures = self.ss_soup.findAll('div', attrs={'class': 'css-l7dc5j el5lbu01'})
         self.teams_involved = [team.get_text(strip=True) for team in fixtures]
         assert len(self.teams_involved) > 0, 'No SuperSix fixtures found'
+        print('Found SuperSix fixtures')
 
     def filter_xg_data(self, season_start_years=[2017, 2018, 2019, 2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'UEFA Europa League', 'English League One', 'English League Two']):
         """Filters xG dataset by season years to include, and list of leagues to use
