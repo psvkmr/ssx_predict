@@ -68,8 +68,9 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
             teams_involved: Team names involved in gameweek fixtures as extracted from ss_soup
         """
         self.driver.get(self.ss_url)
+        sleep(2)
         self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
-        fixtures = self.ss_soup.findAll('div', attrs={'class': 'css-l7dc5j el5lbu01'})
+        fixtures = self.ss_soup.findAll('div', attrs={'class': 'css-1wcz2v7 el5lbu01'})
         self.teams_involved = [team.get_text(strip=True) for team in fixtures]
         assert len(self.teams_involved) > 0, 'No SuperSix fixtures found'
         print('Found SuperSix fixtures')
@@ -108,6 +109,7 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
         except InvalidTeamException as obj:
             print(obj)
 
+# Too many lower league teams to fix currently, deal with it when it occurs
         def FirstGoalTeamException():
             all_teams = pd.concat([self.filt_xg['team1'], self.filt_xg['team2']]).unique()
             for team in list(self.fg_dict.keys()):
@@ -116,8 +118,10 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
         try:
             FirstGoalTeamException()
             print('All First Goal Teams exist in xG dataset')
-        except InvalidTeamException as obj:
-            print(obj)
+#        except InvalidTeamException as obj:
+#            print(obj)
+        except: 
+            print('Some First Goal Teams missing in xG dataset')
 
     def predict_first_goal(self):
         self.first_goal_mins = [self.fg_dict['Average'] if not team in list(self.fg_dict.keys()) else self.fg_dict[team] for team in self.teams_involved]
@@ -142,7 +146,7 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
         def simulate_match(foot_model, homeTeam, awayTeam, max_goals=3):
             home_goals_avg = foot_model.predict(pd.DataFrame(data={'team': homeTeam,
                                                                     'opponent': awayTeam,'home':1},
-                                                              index=[1])).values[0]
+                                                                  index=[1])).values[0]
             away_goals_avg = foot_model.predict(pd.DataFrame(data={'team': awayTeam,
                                                                     'opponent': homeTeam,'home':0},
                                                               index=[1])).values[0]
