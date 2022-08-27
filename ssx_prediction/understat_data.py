@@ -1,6 +1,7 @@
 import pandas as pd
 from bs4 import BeautifulSoup
 import config
+from time import sleep
 
 class understat_data:
     """Import of understat statistical analysis of EPL with standings table and adjustments based on xG and xGA data
@@ -18,6 +19,7 @@ class understat_data:
         """
         driver = config.driver
         driver.get(config.understat_url)
+        sleep(10)
         self.ut_soup = BeautifulSoup(driver.page_source, 'html.parser')
 
     def prem_gw_details(self):
@@ -27,7 +29,7 @@ class understat_data:
             pl_gameweek_date: Date of start of EPL gameweek
             pl_gameweek_fixtures: All fixtures in current EPL gameweek
         """
-        self.pl_gameweek_date = self.ut_soup.find('div', attrs={'class': 'calendar-date'}).get_text(strip=True)
+        #self.pl_gameweek_date = self.ut_soup.find('div', attrs={'class': 'calendar-date'}).get_text(strip=True)
         pl_gameweek_teams = self.ut_soup.findAll('div', attrs={'class': 'team-title'})
         pl_gameweek_teams = [team.get_text(strip=True) for team in pl_gameweek_teams]
         self.pl_gameweek_fixtures = pd.DataFrame({'home':pl_gameweek_teams[::2], 'away':pl_gameweek_teams[1::2]})
