@@ -1,5 +1,5 @@
 # config file - sensitive details
-#config.py
+config.py
 
 # Results files
 data/results
