@@ -22,8 +22,8 @@ options.add_argument('headless')
 driver = webdriver.Chrome(cwbd_path, options=options)
 
 # Supersix login data
-usrn = 'penstrep'
-pno = '2516'
+usrn = ********
+pno = ******
 
 # Team name changes
 from pathlib import Path
