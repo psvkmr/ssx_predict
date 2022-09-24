@@ -1,6 +1,24 @@
+import ssl
 import pandas as pd
 import datetime
 import config
+
+# quick fix for certificate verification problem - need to add permanent one
+ssl._create_default_https_context = ssl._create_unverified_context
+
+def dataset_filter(xg_dataset, season_start_years=[2017, 2018, 2019, 2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'UEFA Europa League', 'English League One', 'English League Two']):
+    """Fitlers xG dataset provided by season year and league name
+    Args:
+        season_start_years (Optional)
+        list_of_leagues (Optional)
+    Returns attributes:
+        xg: xG dataset filtered by season year and league name
+        all_leagues: list of leagues present in filtered xG dataset
+    """
+    filt_xg = xg_dataset[xg_dataset['league'].isin(list_of_leagues)]
+    filt_xg = filt_xg[filt_xg['season'].isin(season_start_years)]
+    filt_xg = filt_xg[filt_xg['date'] < pd.Timestamp(datetime.date.today())]
+    return filt_xg
 
 
 class xg_dataset:
@@ -24,26 +42,14 @@ class xg_dataset:
             xg: CSV file with 538 per-match statistical analysis from config.py URL
             all_leagues: Every league with per-match statistical analysis available in 538 dataset
         """
+        print('Downloading and reading xG data file...')
         self.xg = pd.read_csv(config.xg_csv)
+        print('Read xG data file')
         self.xg['date'] = pd.to_datetime(self.xg['date'], format='%Y-%m-%d')
-        self.all_leagues = pd.Series(self.xg['league']).unique()
         
-    def dataset_filter(self, xg_dataset=None, season_start_years=[2017, 2018, 2019, 2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'UEFA Europa League', 'English League One', 'English League Two']):
-        """Fitlers xG dataset provided by season year and league name
-        Args:
-            season_start_years (Optional)
-            list_of_leagues (Optional)
-        Returns attributes:
-            xg: xG dataset filtered by season year and league name
-            all_leagues: list of leagues present in filtered xG dataset
-        """
-        if not xg_dataset:
-            xg_dataset = self.xg
-        filt_xg = xg_dataset[xg_dataset['league'].isin(list_of_leagues)]
-        filt_xg = filt_xg[filt_xg['season'].isin(season_start_years)]
-        filt_xg = filt_xg[filt_xg['date'] < pd.Timestamp(datetime.date.today())]
-        return filt_xg
-
+    def get_all_leagues(self):
+        return pd.Series(self.xg['league']).unique()
+        
     def season_details(self, season_start_years=[2020, 2021], list_of_leagues=['Barclays Premier League']):
         """Applies league and season date filters for 538 per-match statistics
         Calculates season-average xG, xGA, and difference for each team in the dataset
@@ -62,15 +68,16 @@ class xg_dataset:
         """
         self.leagues = list_of_leagues
         self.season_years = season_start_years
-        self.filt_xg = self.dataset_filter(season_start_years = self.season_years, list_of_leagues = self.leagues)
+        self.filt_xg = dataset_filter(self.xg, season_start_years = self.season_years, list_of_leagues = self.leagues)
+        
         teams = pd.concat([self.filt_xg['team1'], self.filt_xg['team2']]).unique()
         xg_stats = [pd.concat([self.filt_xg[self.filt_xg['team1']==team]['xg1'], self.filt_xg[self.filt_xg['team2']==team]['xg2']]).mean() for team in teams]
         xga_stats = [pd.concat([self.filt_xg[self.filt_xg['team2']==team]['xg1'], self.filt_xg[self.filt_xg['team1']==team]['xg2']]).mean() for team in teams]
         self.xg_table = pd.DataFrame({'Team':teams, 'xG':xg_stats, 'xGA':xga_stats})
         self.xg_table['Diff'] = self.xg_table['xG'] - self.xg_table['xGA']
+        self.xg_table = self.xg_table.sort_values('Diff', ascending=False)
   
     
 if __name__ == '__main__':
     xg_obj = xg_dataset()
-    xg_obj.dataset_filter()
     xg_obj.season_details()
