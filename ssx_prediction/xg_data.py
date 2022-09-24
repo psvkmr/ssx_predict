@@ -1,7 +1,10 @@
+import ssl
 import pandas as pd
 import datetime
 import config
 
+# quick fix for certificate verification problem - need to add permanent one
+ssl._create_default_https_context = ssl._create_unverified_context
 
 class xg_dataset:
     """Import of 538 statistical analysis of each match across several goals with xG data and score predictions
