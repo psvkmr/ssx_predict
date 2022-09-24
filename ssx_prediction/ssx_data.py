@@ -4,13 +4,50 @@ from time import sleep
 import xg_data
 import config
 import first_goal
+from warnings import warn
 import numpy as np
 from scipy.stats import poisson
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from math import exp,factorial
 
-class supersix(xg_data.xg_dataset, first_goal.first_goal):
+
+
+def check_team_names(xg_data, teams_to_check, error=True):
+    class InvalidTeamException(Exception):
+        pass
+    
+    def TeamException():
+        all_teams = pd.concat([xg_data['team1'], xg_data['team2']]).unique()
+        for team in teams_to_check:
+            if not team in all_teams and team != 'Average':
+                raise InvalidTeamException(f'Error: Team {team} does not exist in xG dataset')
+    
+    if error:
+        try:
+            TeamException()
+            print('All teams exist in xG dataset')
+        except InvalidTeamException as obj:
+            print(obj)
+    else:
+        try:
+            TeamException()
+            print('All teams exist in xG dataset')
+        except:
+            warn('Warning: Some teams are missing in xG dataset')
+        
+
+
+def convert_team_names(team_names, reference_names):
+    for i in range(len(team_names)):
+        if config.teams_dict.get(team_names[i]):
+            team_names[i] = config.teams_dict.get(team_names[i])
+    return team_names
+
+
+
+
+class supersix(xg_data.xg_dataset):
     """Import of list of fixtures to be predicted, from the supersix website
     Attributes:
         ss_soup: HTML data from supersix website parsed with BeautifulSoup
@@ -34,10 +71,6 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
         super().__init__()
         self.driver = config.driver
 
-    def fg_extract(self):
-        self.fg_data = self.get_fg_data()
-        self.fg_data = self.extract_fg_data()
-
     def ss_login(self):
         """Logs in to SuperSix website using username and password set in config file
         """
@@ -54,6 +87,7 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
         try:
             self.driver.find_element_by_class_name('_vykkzu').click()
             print('Logged in')
+            sleep(2)
         except:
             print('Cannot log in')
              
@@ -74,6 +108,14 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
         self.teams_involved = [team.get_text(strip=True) for team in fixtures]
         assert len(self.teams_involved) > 0, 'No SuperSix fixtures found'
         print('Found SuperSix fixtures')
+        
+    @staticmethod 
+    def common_leagues_to_use():
+        return "['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'UEFA Europa League', 'English League One', 'English League Two']"
+
+    @classmethod 
+    def use_dummy_teams(cls):
+        cls.teams_involved = ['Burnley', 'Everton', 'Liverpool', 'Leicester City', 'Norwich City', 'Aston Villa', 'Watford', 'Sheffield United', 'Nottingham Forest', 'Brentford', 'West Bromwich Albion', 'Cardiff City']
 
     def filter_xg_data(self, season_start_years=[2017, 2018, 2019, 2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'UEFA Europa League', 'English League One', 'English League Two']):
         """Filters xG dataset by season years to include, and list of leagues to use
@@ -83,53 +125,9 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
         Returns:
             filt_xg: xg Dataset filtered by season years and list of leagues to include
         """
-        self.filt_xg = self.dataset_filter(season_start_years=season_start_years, list_of_leagues=list_of_leagues)
-
-    def convert_team_names(self):
-        for team in self.teams_involved:
-            if config.teams_dict.get(team):
-                self.teams_involved[self.teams_involved.index(team)] = config.teams_dict.get(team)
-
-        for team in list(self.fg_dict.keys()):
-            if config.teams_dict.get(team):
-                self.fg_dict[config.teams_dict.get(team)] = self.fg_dict.pop(team)
-
-    def check_team_names(self):
-        class InvalidTeamException(Exception):
-            pass
-
-        def SuperSixTeamException():
-            all_teams = pd.concat([self.filt_xg['team1'], self.filt_xg['team2']]).unique()
-            for team in self.teams_involved:
-                if not team in all_teams:
-                    raise InvalidTeamException(f'Team {team} from SuperSix does not exist in xG dataset')
-        try:
-            SuperSixTeamException()
-            print('All SuperSix Teams exist in xG dataset')
-        except InvalidTeamException as obj:
-            print(obj)
-
-# Too many lower league teams to fix currently, deal with it when it occurs
-        def FirstGoalTeamException():
-            all_teams = pd.concat([self.filt_xg['team1'], self.filt_xg['team2']]).unique()
-            for team in list(self.fg_dict.keys()):
-                if not team in all_teams and team != 'Average':
-                    raise InvalidTeamException(f'Team {team} from First Goal data does not exist in xG dataset')
-        try:
-            FirstGoalTeamException()
-            print('All First Goal Teams exist in xG dataset')
-#        except InvalidTeamException as obj:
-#            print(obj)
-        except: 
-            print('Some First Goal Teams missing in xG dataset')
-
-    def predict_first_goal(self):
-        self.first_goal_mins = [self.fg_dict['Average'] if not team in list(self.fg_dict.keys()) else self.fg_dict[team] for team in self.teams_involved]
-        self.first_goal_min = min(self.first_goal_mins)
-
+        self.filt_xg = xg_data.dataset_filter(self.xg, season_start_years=season_start_years, list_of_leagues=list_of_leagues)
+              
     def fixture_based_predict(self):
-        #dummy teams involved
-        #self.teams_involved = ['Burnley', 'Everton', 'Liverpool', 'Leicester City', 'Norwich City', 'Aston Villa', 'Watford', 'Sheffield United', 'Nottingham Forest', 'Brentford', 'West Bromwich Albion', 'Cardiff City']
 
         self.fb_teams_results = pd.concat([self.filt_xg[['team1', 'team2', 'xg1']].assign(home=1).rename(
             columns={'team1':'team', 'team2':'opponent', 'xg1':'goals'}),
@@ -229,15 +227,53 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
 
 
 
+class fg_prediction(first_goal.first_goal):
+    
+    def __init__(self, teams_involved):
+        super().__init__()
+        self.teams_involved = teams_involved
+        
+    def fg_extract(self):
+        self.fg_data = self.get_fg_data()
+        self.fg_data = self.extract_fg_data()
+    
+    def predict_first_goal(self):
+        self.first_goal_mins = [self.fg_dict['Average'] if not team in list(self.fg_dict.keys()) else self.fg_dict[team] for team in self.teams_involved]
+        self.first_goal_min = min(self.first_goal_mins)
+
+
+
+
 if __name__ == '__main__':
+    
+    # create supersix object, login and get gameweek data to play
     ss = supersix()
-    ss.fg_extract()
     ss.ss_login()
-    sleep(2)
     ss.ss_fixtures()
+    ss.common_leagues_to_use()
+    
+    # filter xG dataset for teams in gameweek and predict scores
     ss.filter_xg_data()
-    ss.convert_team_names()
-    ss.check_team_names()
-    ss.predict_first_goal()
+    ss.teams_involved = convert_team_names(ss.teams_involved, config.teams_dict)
+    check_team_names(ss.filt_xg, ss.teams_involved)
     ss.fixture_based_predict()
+    ss.fb_results_table
     ss.season_based_predict()
+    ss.sb_results_table
+    
+    # get average first goal score team for each team and select minimum
+    fg = fg_prediction(teams_involved=ss.teams_involved) 
+    fg.fg_extract()
+    fg.teams_involved = convert_team_names(fg.teams_involved, config.teams_dict)
+    check_team_names(ss.filt_xg, list(fg.fg_dict.keys()), error=False)
+    fg.predict_first_goal()
+
+
+
+# troubleshooting
+# =============================================================================
+# supersix.use_dummy_teams()
+# ss = supersix()
+# ss.teams_involved
+# etc...
+# =============================================================================
