@@ -7,13 +7,13 @@ class first_goal:
     def __init__(self):
         self.driver = config.driver
     
-    def get_fg_data(self):
+    def get_fg_data(self, class_tag='fc-cta-consent'):
         self.fg_soups = []
         for fg_url in list(config.fg_urls.values()):
             self.driver.get(fg_url)
             fg_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
             try:
-                self.driver.find_element_by_class_name('fc-cta-consent').click()
+                self.driver.find_element_by_class_name(class_tag).click()
             except:
                 pass
             fg_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
