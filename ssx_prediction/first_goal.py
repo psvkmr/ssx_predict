@@ -1,11 +1,17 @@
 import config
 from bs4 import BeautifulSoup
+from selenium import webdriver
 from statistics import mean
 
 class first_goal:
 
-    def __init__(self):
-        self.driver = config.driver
+    def __init__(self, headless=True):
+        if headless:
+            options = webdriver.ChromeOptions()
+            options.add_argument('headless')
+            self.driver = webdriver.Chrome(config.cwbd_path, options=options)
+        else:
+            self.driver = webdriver.Chrome(config.cwbd_path)
     
     def get_fg_data(self, class_tag='fc-cta-consent'):
         self.fg_soups = []
