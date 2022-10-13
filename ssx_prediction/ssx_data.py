@@ -4,6 +4,7 @@ from time import sleep
 import xg_data
 import config
 import first_goal
+from selenium import webdriver
 from warnings import warn
 import numpy as np
 from scipy.stats import poisson
@@ -67,6 +68,7 @@ def convert_team_names(team_names, reference_names):
     for i in range(len(team_names)):
         if config.teams_dict.get(team_names[i]):
             team_names[i] = config.teams_dict.get(team_names[i])
+            print(f'{team_names[i]} was converted to {config.teams_dict.get(team_names[i])}')
     return team_names
 
 
@@ -111,7 +113,7 @@ class supersix(xg_data.xg_dataset):
         super().__init__(xg_data)
 
 
-    def ss_login(self):
+    def ss_login(self, headless=True):
         """Logs in to SuperSix website using username and password set in config file
         
         Returns:
@@ -120,7 +122,13 @@ class supersix(xg_data.xg_dataset):
         """
         
         # login
-        self.driver = config.driver
+        if headless:
+            options = webdriver.ChromeOptions()
+            options.add_argument('headless')
+            self.driver = webdriver.Chrome(config.cwbd_path, options=options)
+        else:
+            self.driver = webdriver.Chrome(config.cwbd_path)
+            
         self.ss_url = config.supersix_url
         self.driver.get(self.ss_url)
         self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
@@ -153,6 +161,11 @@ class supersix(xg_data.xg_dataset):
         Returns:
             teams_involved: Team names involved in gameweek fixtures as extracted from ss_soup
         """
+        
+        # get fixtures from new page
+        self.driver.get(self.ss_url)
+        sleep(2)
+        self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
         
         # find team name content by 'div' class tags
         fixtures = self.ss_soup.findAll('div', attrs={'class': class_tag})
@@ -339,10 +352,10 @@ if __name__ == '__main__':
     
     # create supersix object, login, and get gameweek data to play
     ss = supersix(xg_data=xg)
-    #ss.ss_login()
-    #ss.ss_fixtures()
-    supersix.use_dummy_teams()
-    ss = supersix(xg_data=xg)
+    ss.ss_login()
+    ss.ss_fixtures()
+    #supersix.use_dummy_teams()
+    #ss = supersix(xg_data=xg)
     
     # filter xG data for relevant teams in gameweek and predict scores
     ss.filter_xg_dataset()
@@ -359,12 +372,11 @@ if __name__ == '__main__':
     fg.predict_first_goal()
 
 
-
-
 # troubleshooting
 # =============================================================================
 # supersix.use_dummy_teams()
 # ss = supersix()
+# ss.login(headless=False)
 # ss.teams_involved
 # etc...
 # =============================================================================
