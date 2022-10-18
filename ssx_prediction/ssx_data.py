@@ -4,46 +4,136 @@ from time import sleep
 import xg_data
 import config
 import first_goal
+from selenium import webdriver
+from warnings import warn
 import numpy as np
 from scipy.stats import poisson
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from math import exp,factorial
 
-class supersix(xg_data.xg_dataset, first_goal.first_goal):
+
+# functions -------------------------------------------------------------------
+
+
+def check_team_names(xg_data, teams_to_check, error=True):
+    """Check if team names in supersix or first-goal data exist in reference xG
+    dataset. Raises exception or warning if team is missing in xG data.
+    
+    Args:
+        xg_data: Reference xG data to which names should be converted
+        teams_to_check: Team names in current gameweek to convert
+        error: If True (default) raise exception and halt, else raise warning 
+        and continue
+        
+    Returns:
+        Error or warning of teams with missing name in reference xG data
+    """
+    
+    class InvalidTeamException(Exception):
+        """Create exception object"""
+        pass
+    
+    def TeamException():
+        """Check team names against all unique names in xG dataset. Raise exception
+        with name of non-existent team if missing
+        """
+        
+        all_teams = pd.concat([xg_data['team1'], xg_data['team2']]).unique()
+        for team in teams_to_check:
+            if not team in all_teams and team != 'Average':
+                raise InvalidTeamException(f'Error: Team {team} does not exist in xG dataset')
+    
+    # if error = True, raise exception, else warn only
+    if error:
+        try:
+            TeamException()
+            print('All teams exist in xG dataset')
+        except InvalidTeamException as obj:
+            print(obj)
+    else:
+        try:
+            TeamException()
+            print('All teams exist in xG dataset')
+        except:
+            warn('Warning: Some teams are missing in xG dataset')
+        
+
+
+def convert_team_names(team_names, reference_names):
+    """Convert team name if team name is in config dictionary of team name conversions
+    which are known to require conversion
+    """
+    
+    for i in range(len(team_names)):
+        if config.teams_dict.get(team_names[i]):
+            print(f'{team_names[i]} was converted to {config.teams_dict.get(team_names[i])}')
+            team_names[i] = config.teams_dict.get(team_names[i])
+    return team_names
+
+
+# super six class -------------------------------------------------------------
+
+
+class supersix(xg_data.xg_dataset):
     """Import of list of fixtures to be predicted, from the supersix website
+    
     Attributes:
+        driver: Chrome driver used for webscraping
         ss_soup: HTML data from supersix website parsed with BeautifulSoup
-        deadline: Deadline for fixture predictions to be entered to supersix
         teams_involved: Teams involved in fixtures to be predicted in supersix
-        leagues: Leagues by which dataset is filtered (Optional argument)
-        season_years: Year of season start to filter dataset by
-        seas_xg: Dataset after filtering by season_start_date and leagues
-        fixtures_xg: Dataset after computing xG and xGA for each fixture to be predicted
-        xg_df: Refined fixtures_xg dataset containing teams and xG data only
+        fb_teams_results: 
+        fb_poisson_model:
+        fb_poisson_summary:
+        fb_results_table:
+        sb_teams_results:
+        sb_team_avg:
+        sb_team_power
+        sb_expected_avg:
+        sb_score_range:
+        sb_results_table:
+
+    Methods:
+        ss_login: Login to supersix website to gameweek info page
+        ss_fixtures: Scrape fixtures for current gameweek
+        common_leagues_to_use: Return list of common leagues for supersix fixtures
+        (staticmethod)
+        use_dummy_teams: Replace fixtures from supersix with dummy set of fixtures
+        useful for debugging without constant supersix logging in (classmethod)
+        fixture_based_predict: 
+        season_based_predict:
     """
 
-    def __init__(self):
-        """Initialises supersix class object, sets SuperSix game URL from config file,
-        sets Google Chrome web import parameters, imports SuperSix html data
-        Returns:
-            ss_url: URL for SuperSix games
-            driver: Google Chrome Webdriver path and settings
-            ss_soup: Text imported from SuperSix gameweek html site page
+    def __init__(self, xg_data):
+        """Initialises supersix class object, inherits xG data
+        
+        Args:
+            xg_data: xG dataset to use for xG based score predictions
         """
-        super().__init__()
-        self.driver = config.driver
+        super().__init__(xg_data)
 
-    def fg_extract(self):
-        self.fg_data = self.get_fg_data()
-        self.fg_data = self.extract_fg_data()
 
-    def ss_login(self):
+    def ss_login(self, headless=True):
         """Logs in to SuperSix website using username and password set in config file
+        
+        Returns:
+        driver: Chrome driver used for webscraping
+        ss_soup: HTML data from supersix website parsed with BeautifulSoup
         """
+        
+        # login
+        if headless:
+            options = webdriver.ChromeOptions()
+            options.add_argument('headless')
+            self.driver = webdriver.Chrome(config.cwbd_path, options=options)
+        else:
+            self.driver = webdriver.Chrome(config.cwbd_path)
+            
         self.ss_url = config.supersix_url
         self.driver.get(self.ss_url)
         self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+        
+        # provide username and password from config file if necessary
         try:
             self.driver.find_element_by_id('username').send_keys(config.usrn)
             self.driver.find_element_by_id('pin').send_keys(config.pno)
@@ -51,89 +141,69 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
             sleep(2)
         except:
             pass
+        
+        # click login button 
         try:
             self.driver.find_element_by_class_name('_vykkzu').click()
             print('Logged in')
+            sleep(2)
         except:
             print('Cannot log in')
              
-    def ss_fixtures(self):
+            
+    def ss_fixtures(self, class_tag='css-1wcz2v7 el5lbu01'):
         """Extracts gameweek fixtures from imported SuperSix site html content,
-        extracts team names involved in fixtures. If team name in SuperSix data is known to
-        be different to the same team's name in xG dataset, then replaces SuperSix team name
-        with xG dataset team name when filtering xG data for team statistics.
-        If no team names are extracted from SuperSix site html data, throws an error
+        extracts team names involved in fixtures. 
+        
+        Args:
+            class_tag: HTML tag name which relates to gameweek fixture content on website
+        
         Returns:
-            ss_soup: Text content from SuperSix gameweek html site
             teams_involved: Team names involved in gameweek fixtures as extracted from ss_soup
         """
+        
+        # get fixtures from new page
         self.driver.get(self.ss_url)
         sleep(2)
         self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
-        fixtures = self.ss_soup.findAll('div', attrs={'class': 'css-1wcz2v7 el5lbu01'})
+        
+        # find team name content by 'div' class tags
+        fixtures = self.ss_soup.findAll('div', attrs={'class': class_tag})
+        
+        # clean strings to get team names
         self.teams_involved = [team.get_text(strip=True) for team in fixtures]
+        
+        # ensure that the fixtures and team names have been identified from html data
         assert len(self.teams_involved) > 0, 'No SuperSix fixtures found'
         print('Found SuperSix fixtures')
+        
+        
+    @staticmethod 
+    def common_leagues_to_use():
+        """Get league names of common leagues to use for supersix prediction data"""
+        
+        return "['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'UEFA Europa League', 'English League One', 'English League Two']"
 
-    def filter_xg_data(self, season_start_years=[2017, 2018, 2019, 2020, 2021], list_of_leagues=['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'UEFA Europa League', 'English League One', 'English League Two']):
-        """Filters xG dataset by season years to include, and list of leagues to use
-        Args:
-            season_start_years (Optional)
-            list_of_leagues (Optional)
-        Returns:
-            filt_xg: xg Dataset filtered by season years and list of leagues to include
+
+    @classmethod 
+    def use_dummy_teams(cls):
+        """Class method to assign dummy fixtures to the 'teams_involved' attribute, 
+        these fixtures can be used for all downstream class methods
         """
-        self.filt_xg = self.dataset_filter(season_start_years=season_start_years, list_of_leagues=list_of_leagues)
+        
+        cls.teams_involved = ['Burnley', 'Everton', 'Liverpool', 'Leicester City', 'Norwich City', 'Aston Villa', 'Watford', 'Sheffield United', 'Nottingham Forest', 'Brentford', 'West Bromwich Albion', 'Cardiff City']
 
-    def convert_team_names(self):
-        for team in self.teams_involved:
-            if config.teams_dict.get(team):
-                self.teams_involved[self.teams_involved.index(team)] = config.teams_dict.get(team)
-
-        for team in list(self.fg_dict.keys()):
-            if config.teams_dict.get(team):
-                self.fg_dict[config.teams_dict.get(team)] = self.fg_dict.pop(team)
-
-    def check_team_names(self):
-        class InvalidTeamException(Exception):
-            pass
-
-        def SuperSixTeamException():
-            all_teams = pd.concat([self.filt_xg['team1'], self.filt_xg['team2']]).unique()
-            for team in self.teams_involved:
-                if not team in all_teams:
-                    raise InvalidTeamException(f'Team {team} from SuperSix does not exist in xG dataset')
-        try:
-            SuperSixTeamException()
-            print('All SuperSix Teams exist in xG dataset')
-        except InvalidTeamException as obj:
-            print(obj)
-
-# Too many lower league teams to fix currently, deal with it when it occurs
-        def FirstGoalTeamException():
-            all_teams = pd.concat([self.filt_xg['team1'], self.filt_xg['team2']]).unique()
-            for team in list(self.fg_dict.keys()):
-                if not team in all_teams and team != 'Average':
-                    raise InvalidTeamException(f'Team {team} from First Goal data does not exist in xG dataset')
-        try:
-            FirstGoalTeamException()
-            print('All First Goal Teams exist in xG dataset')
-#        except InvalidTeamException as obj:
-#            print(obj)
-        except: 
-            print('Some First Goal Teams missing in xG dataset')
-
-    def predict_first_goal(self):
-        self.first_goal_mins = [self.fg_dict['Average'] if not team in list(self.fg_dict.keys()) else self.fg_dict[team] for team in self.teams_involved]
-        self.first_goal_min = min(self.first_goal_mins)
-
+   
     def fixture_based_predict(self):
-        #dummy teams involved
-        #self.teams_involved = ['Burnley', 'Everton', 'Liverpool', 'Leicester City', 'Norwich City', 'Aston Villa', 'Watford', 'Sheffield United', 'Nottingham Forest', 'Brentford', 'West Bromwich Albion', 'Cardiff City']
+        """Predict team scores based on poisson distributions of team home and away xGs and xGAs
+        
+        Returns:
+            
+        """
 
-        self.fb_teams_results = pd.concat([self.filt_xg[['team1', 'team2', 'xg1']].assign(home=1).rename(
+        self.fb_teams_results = pd.concat([self.xg[['team1', 'team2', 'xg1']].assign(home=1).rename(
             columns={'team1':'team', 'team2':'opponent', 'xg1':'goals'}),
-            self.filt_xg[['team2', 'team1', 'xg2']].assign(home=0).rename(
+            self.xg[['team2', 'team1', 'xg2']].assign(home=0).rename(
                 columns={'team2':'team', 'team1':'opponent', 'xg2':'goals'})])
         self.fb_teams_results = self.fb_teams_results[self.fb_teams_results['team'].isin(self.teams_involved) |
                                                   self.fb_teams_results['opponent'].isin(self.teams_involved)]
@@ -168,34 +238,43 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
             scores.append(score)
         self.fb_results_table['results']=scores
 
+
     def season_based_predict(self):
-        self.sb_teams_results = self.filt_xg[(self.filt_xg['team1'].isin(self.teams_involved)) | (self.filt_xg['team2'].isin(self.teams_involved))][['team1', 'team2', 'xg1', 'xg2']]
+        """Predict team scores based on team power estimates
+        
+        Returns:
+            
+        """
+        
+        self.sb_teams_results = self.xg[(self.xg['team1'].isin(self.teams_involved)) | (self.xg['team2'].isin(self.teams_involved))][['team1', 'team2', 'xg1', 'xg2']]
 
         home_team_avg=self.sb_teams_results['xg1'].mean()
         away_team_avg=self.sb_teams_results['xg2'].mean()
 
         self.sb_team_avg={}
         for team in self.teams_involved:
-            home_goals_for = self.sb_teams_results[self.sb_teams_results['team1']==team]['xg1'].mean()
-            home_goals_against = self.sb_teams_results[self.sb_teams_results['team1']==team]['xg2'].mean()
-            away_goals_for = self.sb_teams_results[self.sb_teams_results['team2']==team]['xg2'].mean()
-            away_goals_against = self.sb_teams_results[self.sb_teams_results['team2']==team]['xg1'].mean()
-            team_dct={'home_for': home_goals_for, 'home_against': home_goals_against,
-                      'away_for': away_goals_for, 'away_against': away_goals_against}
+            home = self.sb_teams_results[self.sb_teams_results['team1']==team]
+            away = self.sb_teams_results[self.sb_teams_results['team2']==team]
+            home_for = home['xg1'].mean()
+            home_against = home['xg2'].mean()
+            away_for = away['xg2'].mean()
+            away_against = away['xg1'].mean()
+            team_dct={'home_for': home_for, 'home_against': home_against,
+                      'away_for': away_for, 'away_against': away_against}
             self.sb_team_avg.update({team: team_dct})
 
         self.sb_team_power={}
         for team in self.teams_involved:
-            home_att_pwr = self.sb_team_avg[team]['home_for']/home_team_avg
-            home_def_pwr = self.sb_team_avg[team]['home_against']/away_team_avg
-            away_att_pwr = self.sb_team_avg[team]['away_for']/away_team_avg
-            away_def_pwr = self.sb_team_avg[team]['away_against']/home_team_avg
+            home_att_pwr = self.sb_team_avg[team]['home_for'] / home_team_avg
+            home_def_pwr = self.sb_team_avg[team]['home_against'] / away_team_avg
+            away_att_pwr = self.sb_team_avg[team]['away_for'] / away_team_avg
+            away_def_pwr = self.sb_team_avg[team]['away_against'] / home_team_avg
             team_dct={'home_att_pwr': home_att_pwr, 'home_def_pwr': home_def_pwr,
                       'away_att_pwr': away_att_pwr, 'away_def_pwr': away_def_pwr}
             self.sb_team_power.update({team: team_dct})
 
         self.sb_expected_average={}
-        for i in range(0, 12, 2):
+        for i in range(0, len(self.teams_involved), 2):
             home_score = self.sb_team_power[self.teams_involved[i]]['home_att_pwr'] * self.sb_team_power[self.teams_involved[i+1]]['away_def_pwr'] * home_team_avg
             away_score = self.sb_team_power[self.teams_involved[i+1]]['away_att_pwr'] * self.sb_team_power[self.teams_involved[i+1]]['home_def_pwr'] * away_team_avg
             score = {self.teams_involved[i]: home_score, self.teams_involved[i+1]: away_score}
@@ -228,16 +307,76 @@ class supersix(xg_data.xg_dataset, first_goal.first_goal):
                                          'results': scorelines})
 
 
+# first goal class -----------------------------------------------------------
+
+
+class fg_prediction(first_goal.first_goal):
+    """Prediction object for first goal to be scored across gameweek fixtures
+    """
+    
+    def __init__(self, teams_involved):
+        """Initialise prediction object, inherit from first_goal class
+        
+        Args:
+            teams_involved: Teams involved in current gameweek fixtures to be predicted
+            
+        Returns:
+            teams_involved: Teams involved in current gameweek fixtures to be predicted
+            fg_data: First goal data
+            first_goal_mins: Average first goal times for each team
+            first_goal_min: Lowest average first goal time in first_goal_mins
+        """
+        
+        super().__init__()
+        self.teams_involved = teams_involved
+        
+        
+    def fg_extract(self):
+        self.fg_data = self.get_fg_data()
+        self.fg_data = self.extract_fg_data()
+    
+    
+    def predict_first_goal(self):
+        self.first_goal_mins = [self.fg_dict['Average'] if not team 
+                                in list(self.fg_dict.keys()) else self.fg_dict[team] 
+                                for team in self.teams_involved]
+        self.first_goal_min = min(self.first_goal_mins)
+
+
+# run -------------------------------------------------------------------------
 
 if __name__ == '__main__':
-    ss = supersix()
-    ss.fg_extract()
+    
+    # download xG reference data
+    xg = xg_data.download_xg_data()
+    
+    # create supersix object, login, and get gameweek data to play
+    ss = supersix(xg_data=xg)
     ss.ss_login()
-    sleep(2)
     ss.ss_fixtures()
-    ss.filter_xg_data()
-    ss.convert_team_names()
-    ss.check_team_names()
-    ss.predict_first_goal()
+    #supersix.use_dummy_teams()
+    #ss = supersix(xg_data=xg)
+    
+    # filter xG data for relevant teams in gameweek and predict scores
+    ss.filter_xg_dataset()
+    ss.teams_involved = convert_team_names(ss.teams_involved, config.teams_dict)
+    check_team_names(ss.xg, ss.teams_involved)
     ss.fixture_based_predict()
     ss.season_based_predict()
+    
+    # get average first goal score team for each team and select minimum
+    fg = fg_prediction(teams_involved=ss.teams_involved)
+    fg.fg_extract()
+    fg.teams_involved = convert_team_names(fg.teams_involved, config.teams_dict)
+    check_team_names(ss.xg, list(fg.fg_dict.keys()), error=False)
+    fg.predict_first_goal()
+
+
+# troubleshooting
+# =============================================================================
+# supersix.use_dummy_teams()
+# ss = supersix()
+# ss.login(headless=False)
+# ss.teams_involved
+# etc...
+# =============================================================================
