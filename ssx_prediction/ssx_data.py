@@ -67,8 +67,8 @@ def convert_team_names(team_names, reference_names):
     
     for i in range(len(team_names)):
         if config.teams_dict.get(team_names[i]):
-            team_names[i] = config.teams_dict.get(team_names[i])
             print(f'{team_names[i]} was converted to {config.teams_dict.get(team_names[i])}')
+            team_names[i] = config.teams_dict.get(team_names[i])
     return team_names
 
 
