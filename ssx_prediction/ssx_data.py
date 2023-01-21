@@ -135,12 +135,26 @@ class supersix(xg_data.xg_dataset):
         
         # provide username and password from config file if necessary
         try:
+            self.driver.find_element_by_id('onetrust-accept-btn-handler').click()
+            print('Had to accept cookies')
+        except:
+            pass
+        
+        try:
+            self.driver.find_element_by_id('account-bar-login-btn').click()
+            print('Clicked login')
+            sleep(2)
+        except: 
+            print('Did not click login button')
+            
+        try:
             self.driver.find_element_by_id('username').send_keys(config.usrn)
             self.driver.find_element_by_id('pin').send_keys(config.pno)
             print('Logging in...')
             sleep(2)
         except:
-            pass
+            print('Could not provide login credentials')
+        
         
         # click login button 
         try:
@@ -375,8 +389,8 @@ if __name__ == '__main__':
 # troubleshooting
 # =============================================================================
 # supersix.use_dummy_teams()
-# ss = supersix()
-# ss.login(headless=False)
+# ss = supersix(xg_data)
+# ss.ss_login(headless=False)
 # ss.teams_involved
 # etc...
 # =============================================================================
