@@ -367,7 +367,6 @@ if __name__ == '__main__':
     check_team_names(ss.xg, list(fg.fg_dict.keys()), error=False)
     fg.predict_first_goal()
 
-
 # troubleshooting
 # =============================================================================
 # ss = Supersix()
