@@ -10,7 +10,7 @@ import numpy as np
 from scipy.stats import poisson
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-from math import exp,factorial
+from math import exp, factorial
 
 
 # functions -------------------------------------------------------------------
@@ -34,33 +34,32 @@ def check_team_names(xg_data, teams_to_check, error=True):
         """Create exception object"""
         pass
     
-    def TeamException():
+    def team_exception():
         """Check team names against all unique names in xG dataset. Raise exception
         with name of non-existent team if missing
         """
         
         all_teams = pd.concat([xg_data['team1'], xg_data['team2']]).unique()
         for team in teams_to_check:
-            if not team in all_teams and team != 'Average':
+            if team not in all_teams and team != 'Average':
                 raise InvalidTeamException(f'Error: Team {team} does not exist in xG dataset')
     
     # if error = True, raise exception, else warn only
     if error:
         try:
-            TeamException()
+            team_exception()
             print('All teams exist in xG dataset')
         except InvalidTeamException as obj:
             print(obj)
     else:
         try:
-            TeamException()
+            team_exception()
             print('All teams exist in xG dataset')
         except:
             warn('Warning: Some teams are missing in xG dataset')
         
 
-
-def convert_team_names(team_names, reference_names):
+def convert_team_names(team_names):
     """Convert team name if team name is in config dictionary of team name conversions
     which are known to require conversion
     """
@@ -75,7 +74,7 @@ def convert_team_names(team_names, reference_names):
 # super six class -------------------------------------------------------------
 
 
-class supersix(xg_data.xg_dataset):
+class Supersix(xg_data.XgDataset):
     """Import of list of fixtures to be predicted, from the supersix website
     
     Attributes:
@@ -112,6 +111,7 @@ class supersix(xg_data.xg_dataset):
         """
         super().__init__(xg_data)
 
+        self.ss_url = config.supersix_url
 
     def ss_login(self, headless=True):
         """Logs in to SuperSix website using username and password set in config file
@@ -129,7 +129,6 @@ class supersix(xg_data.xg_dataset):
         else:
             self.driver = webdriver.Chrome(config.cwbd_path)
             
-        self.ss_url = config.supersix_url
         self.driver.get(self.ss_url)
         self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
         
@@ -149,8 +148,7 @@ class supersix(xg_data.xg_dataset):
             sleep(2)
         except:
             print('Cannot log in')
-             
-            
+
     def ss_fixtures(self, class_tag='css-1wcz2v7 el5lbu01'):
         """Extracts gameweek fixtures from imported SuperSix site html content,
         extracts team names involved in fixtures. 
@@ -176,14 +174,13 @@ class supersix(xg_data.xg_dataset):
         # ensure that the fixtures and team names have been identified from html data
         assert len(self.teams_involved) > 0, 'No SuperSix fixtures found'
         print('Found SuperSix fixtures')
-        
-        
+
     @staticmethod 
     def common_leagues_to_use():
         """Get league names of common leagues to use for supersix prediction data"""
         
-        return "['Barclays Premier League', 'English League Championship', 'UEFA Champions League', 'UEFA Europa League', 'English League One', 'English League Two']"
-
+        return "['Barclays Premier League', 'English League Championship', 'UEFA Champions League', " \
+               "'UEFA Europa League', 'English League One', 'English League Two']"
 
     @classmethod 
     def use_dummy_teams(cls):
@@ -191,9 +188,10 @@ class supersix(xg_data.xg_dataset):
         these fixtures can be used for all downstream class methods
         """
         
-        cls.teams_involved = ['Burnley', 'Everton', 'Liverpool', 'Leicester City', 'Norwich City', 'Aston Villa', 'Watford', 'Sheffield United', 'Nottingham Forest', 'Brentford', 'West Bromwich Albion', 'Cardiff City']
+        cls.teams_involved = ['Burnley', 'Everton', 'Liverpool', 'Leicester City', 'Norwich City', 'Aston Villa',
+                              'Watford', 'Sheffield United', 'Nottingham Forest', 'Brentford', 'West Bromwich Albion',
+                              'Cardiff City']
 
-   
     def fixture_based_predict(self):
         """Predict team scores based on poisson distributions of team home and away xGs and xGAs
         
@@ -202,42 +200,42 @@ class supersix(xg_data.xg_dataset):
         """
 
         self.fb_teams_results = pd.concat([self.xg[['team1', 'team2', 'xg1']].assign(home=1).rename(
-            columns={'team1':'team', 'team2':'opponent', 'xg1':'goals'}),
+            columns={'team1': 'team', 'team2': 'opponent', 'xg1': 'goals'}),
             self.xg[['team2', 'team1', 'xg2']].assign(home=0).rename(
-                columns={'team2':'team', 'team1':'opponent', 'xg2':'goals'})])
+                columns={'team2': 'team', 'team1': 'opponent', 'xg2': 'goals'})])
         self.fb_teams_results = self.fb_teams_results[self.fb_teams_results['team'].isin(self.teams_involved) |
-                                                  self.fb_teams_results['opponent'].isin(self.teams_involved)]
+                                                      self.fb_teams_results['opponent'].isin(self.teams_involved)]
 
         self.fb_poisson_model = smf.glm(formula='goals ~ home + team + opponent',
-                                     data=self.fb_teams_results,
-                                     family=sm.families.Poisson()).fit()
+                                        data=self.fb_teams_results,
+                                        family=sm.families.Poisson()).fit()
         self.fb_poisson_summary = self.fb_poisson_model.summary()
 
-        def simulate_match(foot_model, homeTeam, awayTeam, max_goals=3):
-            home_goals_avg = foot_model.predict(pd.DataFrame(data={'team': homeTeam,
-                                                                    'opponent': awayTeam,'home':1},
-                                                                  index=[1])).values[0]
-            away_goals_avg = foot_model.predict(pd.DataFrame(data={'team': awayTeam,
-                                                                    'opponent': homeTeam,'home':0},
-                                                              index=[1])).values[0]
-            team_pred = [[poisson.pmf(i, team_avg) for i in range(0, max_goals+1)] for team_avg in [home_goals_avg, away_goals_avg]]
-            return(np.outer(np.array(team_pred[0]), np.array(team_pred[1])))
+        def simulate_match(foot_model, home_team, away_team, max_goals=3):
+            home_goals_avg = foot_model.predict(pd.DataFrame(data={'team': home_team,
+                                                                   'opponent': away_team, 'home': 1},
+                                                             index=[1])).values[0]
+            away_goals_avg = foot_model.predict(pd.DataFrame(data={'team': away_team,
+                                                                   'opponent': home_team, 'home': 0},
+                                                             index=[1])).values[0]
+            team_pred = [[poisson.pmf(i, team_avg) for i in range(0, max_goals+1)] for team_avg in
+                         [home_goals_avg, away_goals_avg]]
+            return np.outer(np.array(team_pred[0]), np.array(team_pred[1]))
 
-        self.fb_results_table = pd.DataFrame({'home':self.teams_involved[::2], 'away':self.teams_involved[1::2]})
+        self.fb_results_table = pd.DataFrame({'home': self.teams_involved[::2], 'away': self.teams_involved[1::2]})
         score_arrays = []
         scores = []
         for i in range(len(self.fb_results_table)):
-            score_array = simulate_match(foot_model = self.fb_poisson_model,
-                                         homeTeam = self.fb_results_table.iloc[i, ]['home'],
-                                         awayTeam = self.fb_results_table.iloc[i, ]['away'])
+            score_array = simulate_match(foot_model=self.fb_poisson_model,
+                                         home_team=self.fb_results_table.iloc[i, ]['home'],
+                                         away_team=self.fb_results_table.iloc[i, ]['away'])
             score_arrays.append(score_array)
             score = np.where(score_array == score_array.max())
             home_goals = score[0][0]
             away_goals = score[1][0]
             score = f'{home_goals}-{away_goals}'
             scores.append(score)
-        self.fb_results_table['results']=scores
-
+        self.fb_results_table['results'] = scores
 
     def season_based_predict(self):
         """Predict team scores based on team power estimates
@@ -246,34 +244,35 @@ class supersix(xg_data.xg_dataset):
             
         """
         
-        self.sb_teams_results = self.xg[(self.xg['team1'].isin(self.teams_involved)) | (self.xg['team2'].isin(self.teams_involved))][['team1', 'team2', 'xg1', 'xg2']]
+        self.sb_teams_results = self.xg[(self.xg['team1'].isin(self.teams_involved)) |
+                                        (self.xg['team2'].isin(self.teams_involved))][['team1', 'team2', 'xg1', 'xg2']]
 
-        home_team_avg=self.sb_teams_results['xg1'].mean()
-        away_team_avg=self.sb_teams_results['xg2'].mean()
+        home_team_avg = self.sb_teams_results['xg1'].mean()
+        away_team_avg = self.sb_teams_results['xg2'].mean()
 
-        self.sb_team_avg={}
+        self.sb_team_avg = {}
         for team in self.teams_involved:
-            home = self.sb_teams_results[self.sb_teams_results['team1']==team]
-            away = self.sb_teams_results[self.sb_teams_results['team2']==team]
+            home = self.sb_teams_results[self.sb_teams_results['team1'] == team]
+            away = self.sb_teams_results[self.sb_teams_results['team2'] == team]
             home_for = home['xg1'].mean()
             home_against = home['xg2'].mean()
             away_for = away['xg2'].mean()
             away_against = away['xg1'].mean()
-            team_dct={'home_for': home_for, 'home_against': home_against,
-                      'away_for': away_for, 'away_against': away_against}
+            team_dct = {'home_for': home_for, 'home_against': home_against,
+                        'away_for': away_for, 'away_against': away_against}
             self.sb_team_avg.update({team: team_dct})
 
-        self.sb_team_power={}
+        self.sb_team_power = {}
         for team in self.teams_involved:
             home_att_pwr = self.sb_team_avg[team]['home_for'] / home_team_avg
             home_def_pwr = self.sb_team_avg[team]['home_against'] / away_team_avg
             away_att_pwr = self.sb_team_avg[team]['away_for'] / away_team_avg
             away_def_pwr = self.sb_team_avg[team]['away_against'] / home_team_avg
-            team_dct={'home_att_pwr': home_att_pwr, 'home_def_pwr': home_def_pwr,
-                      'away_att_pwr': away_att_pwr, 'away_def_pwr': away_def_pwr}
+            team_dct = {'home_att_pwr': home_att_pwr, 'home_def_pwr': home_def_pwr,
+                        'away_att_pwr': away_att_pwr, 'away_def_pwr': away_def_pwr}
             self.sb_team_power.update({team: team_dct})
 
-        self.sb_expected_average={}
+        self.sb_expected_average = {}
         for i in range(0, len(self.teams_involved), 2):
             home_score = self.sb_team_power[self.teams_involved[i]]['home_att_pwr'] * self.sb_team_power[self.teams_involved[i+1]]['away_def_pwr'] * home_team_avg
             away_score = self.sb_team_power[self.teams_involved[i+1]]['away_att_pwr'] * self.sb_team_power[self.teams_involved[i+1]]['home_def_pwr'] * away_team_avg
@@ -284,7 +283,7 @@ class supersix(xg_data.xg_dataset):
             probability = ((l**x) * exp(-l)) / factorial(x)
             return probability*100
 
-        self.sb_scores_range={}
+        self.sb_scores_range = {}
         for team in list(self.sb_expected_average.keys()):
             gs_goals_prob = []
             for i in range(4):
@@ -303,14 +302,14 @@ class supersix(xg_data.xg_dataset):
             scorelines.append(scores)
 
         self.sb_results_table = pd.DataFrame({'home': home_teams,
-                                         'away': away_teams,
-                                         'results': scorelines})
+                                              'away': away_teams,
+                                              'results': scorelines})
 
 
 # first goal class -----------------------------------------------------------
 
 
-class fg_prediction(first_goal.first_goal):
+class FgPrediction(first_goal.FirstGoal):
     """Prediction object for first goal to be scored across gameweek fixtures
     """
     
@@ -329,16 +328,13 @@ class fg_prediction(first_goal.first_goal):
         
         super().__init__()
         self.teams_involved = teams_involved
-        
-        
+
     def fg_extract(self):
         self.fg_data = self.get_fg_data()
         self.fg_data = self.extract_fg_data()
-    
-    
+
     def predict_first_goal(self):
-        self.first_goal_mins = [self.fg_dict['Average'] if not team 
-                                in list(self.fg_dict.keys()) else self.fg_dict[team] 
+        self.first_goal_mins = [self.fg_dict['Average'] if team not in list(self.fg_dict.keys()) else self.fg_dict[team]
                                 for team in self.teams_involved]
         self.first_goal_min = min(self.first_goal_mins)
 
@@ -351,23 +347,23 @@ if __name__ == '__main__':
     xg = xg_data.download_xg_data()
     
     # create supersix object, login, and get gameweek data to play
-    ss = supersix(xg_data=xg)
+    ss = Supersix(xg_data=xg)
     ss.ss_login()
     ss.ss_fixtures()
-    #supersix.use_dummy_teams()
-    #ss = supersix(xg_data=xg)
+#    supersix.use_dummy_teams()
+#    ss = supersix(xg_data=xg)
     
     # filter xG data for relevant teams in gameweek and predict scores
     ss.filter_xg_dataset()
-    ss.teams_involved = convert_team_names(ss.teams_involved, config.teams_dict)
+    ss.teams_involved = convert_team_names(ss.teams_involved)
     check_team_names(ss.xg, ss.teams_involved)
     ss.fixture_based_predict()
     ss.season_based_predict()
     
     # get average first goal score team for each team and select minimum
-    fg = fg_prediction(teams_involved=ss.teams_involved)
+    fg = FgPrediction(teams_involved=ss.teams_involved)
     fg.fg_extract()
-    fg.teams_involved = convert_team_names(fg.teams_involved, config.teams_dict)
+    fg.teams_involved = convert_team_names(fg.teams_involved)
     check_team_names(ss.xg, list(fg.fg_dict.keys()), error=False)
     fg.predict_first_goal()
 
