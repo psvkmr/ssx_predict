@@ -10,9 +10,9 @@ understat_url = "https://understat.com/league/EPL"
 
 # First goal data urls
 fg_urls = {'pl': 'https://www.soccerstats.com/firstgoal.asp?league=england',
-                'ch': 'https://www.soccerstats.com/firstgoal.asp?league=england2',
-                'l1': 'https://www.soccerstats.com/firstgoal.asp?league=england3',
-                'l2': 'https://www.soccerstats.com/firstgoal.asp?league=england4'}
+           'ch': 'https://www.soccerstats.com/firstgoal.asp?league=england2',
+           'l1': 'https://www.soccerstats.com/firstgoal.asp?league=england3',
+           'l2': 'https://www.soccerstats.com/firstgoal.asp?league=england4'}
 
 # Supersix site fixtures data url
 supersix_url = 'https://super6.skysports.com/play'

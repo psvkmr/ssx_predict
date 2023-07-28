@@ -3,21 +3,26 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from statistics import mean
 
-class first_goal:
+
+class FirstGoal:
 
     def __init__(self, headless=True):
         if headless:
             options = webdriver.ChromeOptions()
             options.add_argument('headless')
-            self.driver = webdriver.Chrome(config.cwbd_path, options=options)
+            self.driver = webdriver.Chrome(service=config.cwbd_path, options=options)
         else:
             self.driver = webdriver.Chrome(config.cwbd_path)
+
+        # add to populate with methods
+        self.fg_soups = None
+        self.fg_dict = None
     
     def get_fg_data(self, class_tag='fc-cta-consent'):
         self.fg_soups = []
         for fg_url in list(config.fg_urls.values()):
             self.driver.get(fg_url)
-            fg_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+#            fg_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
             try:
                 self.driver.find_element_by_class_name(class_tag).click()
             except:
@@ -39,7 +44,8 @@ class first_goal:
         self.fg_dict = {**fg_dicts[0], **fg_dicts[1], **fg_dicts[2], **fg_dicts[3]}
         self.fg_dict.update({'Average': round(mean(list(self.fg_dict.values())))})
 
+
 if __name__ == '__main__':
-    fg_obj = first_goal()
+    fg_obj = FirstGoal()
     fg_obj.get_fg_data()
     fg_obj.extract_fg_data()

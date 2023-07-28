@@ -125,7 +125,7 @@ class supersix(xg_data.xg_dataset):
         if headless:
             options = webdriver.ChromeOptions()
             options.add_argument('headless')
-            self.driver = webdriver.Chrome(config.cwbd_path, options=options)
+            self.driver = webdriver.Chrome(service=config.cwbd_path, options=options)
         else:
             self.driver = webdriver.Chrome(config.cwbd_path)
             
