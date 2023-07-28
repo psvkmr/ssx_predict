@@ -5,6 +5,7 @@ import xg_data
 import config
 import first_goal
 from selenium import webdriver
+from selenium.webdriver.common.by import By
 from warnings import warn
 import numpy as np
 from scipy.stats import poisson
@@ -15,6 +16,7 @@ from math import exp, factorial
 
 # functions -------------------------------------------------------------------
 
+# TODO: Need to update selenium methods to find names using "By" method
 
 def check_team_names(xg_data, teams_to_check, error=True):
     """Check if team names in supersix or first-goal data exist in reference xG
@@ -124,7 +126,7 @@ class Supersix(xg_data.XgDataset):
         # login
         if headless:
             options = webdriver.ChromeOptions()
-            options.add_argument('headless')
+            options.add_argument('--headless')
             self.driver = webdriver.Chrome(service=config.cwbd_path, options=options)
         else:
             self.driver = webdriver.Chrome(config.cwbd_path)
@@ -134,7 +136,7 @@ class Supersix(xg_data.XgDataset):
         
         # provide username and password from config file if necessary
         try:
-            self.driver.find_element_by_id('username').send_keys(config.usrn)
+            self.driver.find_element(By.CLASS_NAME'username').send_keys(config.usrn)
             self.driver.find_element_by_id('pin').send_keys(config.pno)
             print('Logging in...')
             sleep(2)
@@ -347,12 +349,13 @@ if __name__ == '__main__':
     xg = xg_data.download_xg_data()
     
     # create supersix object, login, and get gameweek data to play
-#    ss = Supersix(xg_data=xg)
-#    ss.ss_login()
-#    ss.ss_fixtures()
-    Supersix.use_dummy_teams()
     ss = Supersix(xg_data=xg)
-    
+    ss.ss_login(headless=False)
+    exit()
+    ss.ss_fixtures()
+#    Supersix.use_dummy_teams()
+#    ss = Supersix(xg_data=xg)
+    exit()
     # filter xG data for relevant teams in gameweek and predict scores
     ss.filter_xg_dataset()
     ss.teams_involved = convert_team_names(ss.teams_involved)
