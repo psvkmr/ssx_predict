@@ -5,6 +5,8 @@ ssx_prediction/config.py
 data/results
 notebooks/
 
+.DS_store
+
 # binaries
 *.deb
 
