@@ -55,7 +55,7 @@ def check_team_names(xg_data, teams_to_check, error=True):
         try:
             team_exception()
             print('All teams exist in xG dataset')
-        except:
+        except Exception:
             warn('Warning: Some teams are missing in xG dataset')
         
 
@@ -64,12 +64,11 @@ def convert_team_names(team_names):
     which are known to require conversion
     """
     
-    for i in range(len(team_names)):
-        if config.teams_dict.get(team_names[i]):
-            print(f'{team_names[i]} was converted to {config.teams_dict.get(team_names[i])}')
-            team_names[i] = config.teams_dict.get(team_names[i])
+    for team in team_names:
+        if config.teams_dict.get(team):
+            team_names = [config.teams_dict.get(team) if t == team else t for t in team_names]
+            print(f'{team} was converted to {config.teams_dict.get(team)}')
     return team_names
-
 
 # super six class -------------------------------------------------------------
 
@@ -87,7 +86,7 @@ class Supersix(xg_data.XgDataset):
         fb_results_table:
         sb_teams_results:
         sb_team_avg:
-        sb_team_power
+        sb_team_power:
         sb_expected_avg:
         sb_score_range:
         sb_results_table:
@@ -112,6 +111,7 @@ class Supersix(xg_data.XgDataset):
         super().__init__(xg_data)
 
         self.ss_url = config.supersix_url
+        self.ss_soup = None
 
     def ss_login(self, headless=True):
         """Logs in to SuperSix website using username and password set in config file
@@ -138,7 +138,7 @@ class Supersix(xg_data.XgDataset):
             self.driver.find_element_by_id('pin').send_keys(config.pno)
             print('Logging in...')
             sleep(2)
-        except:
+        except Exception:
             pass
         
         # click login button 
@@ -146,7 +146,7 @@ class Supersix(xg_data.XgDataset):
             self.driver.find_element_by_class_name('_vykkzu').click()
             print('Logged in')
             sleep(2)
-        except:
+        except Exception:
             print('Cannot log in')
 
     def ss_fixtures(self, class_tag='css-1wcz2v7 el5lbu01'):
@@ -347,11 +347,11 @@ if __name__ == '__main__':
     xg = xg_data.download_xg_data()
     
     # create supersix object, login, and get gameweek data to play
+#    ss = Supersix(xg_data=xg)
+#    ss.ss_login()
+#    ss.ss_fixtures()
+    Supersix.use_dummy_teams()
     ss = Supersix(xg_data=xg)
-    ss.ss_login()
-    ss.ss_fixtures()
-#    supersix.use_dummy_teams()
-#    ss = supersix(xg_data=xg)
     
     # filter xG data for relevant teams in gameweek and predict scores
     ss.filter_xg_dataset()
@@ -359,7 +359,7 @@ if __name__ == '__main__':
     check_team_names(ss.xg, ss.teams_involved)
     ss.fixture_based_predict()
     ss.season_based_predict()
-    
+
     # get average first goal score team for each team and select minimum
     fg = FgPrediction(teams_involved=ss.teams_involved)
     fg.fg_extract()
@@ -370,8 +370,7 @@ if __name__ == '__main__':
 
 # troubleshooting
 # =============================================================================
-# supersix.use_dummy_teams()
-# ss = supersix()
+# ss = Supersix()
 # ss.login(headless=False)
 # ss.teams_involved
 # etc...
