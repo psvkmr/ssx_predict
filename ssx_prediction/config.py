@@ -1,4 +1,6 @@
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from pathlib import Path
 
 # 538 XG data .csv file url
 xg_csv = 'https://projects.fivethirtyeight.com/soccer-api/club/spi_matches.csv'
@@ -16,18 +18,16 @@ fg_urls = {'pl': 'https://www.soccerstats.com/firstgoal.asp?league=england',
 supersix_url = 'https://super6.skysports.com/play'
 
 # local chrome webdriver executable path
-cwbd_path = r'/usr/bin/chromedriver'
-options = webdriver.ChromeOptions()
-options.add_argument('headless')
-driver = webdriver.Chrome(cwbd_path, options=options)
+cwbd_path = Service(executable_path=r'/Users/prasanthsivakumar/Applications/chromedriver_mac64/chromedriver')
+option = webdriver.ChromeOptions()
+option.add_argument('headless')
+driver = webdriver.Chrome(service=cwbd_path, options=option)
 
 # Supersix login data
-usrn = ********
-pno = ******
+usrn = "********"
+pno = "******"
 
 # Team name changes
-from pathlib import Path
-
 path = Path(__file__).parent.parent
 ext = "/data/resources/team_name_changes.csv"
 path = Path(str(path) + ext)
