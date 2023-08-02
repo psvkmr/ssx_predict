@@ -6,6 +6,7 @@ import config
 import first_goal
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
 from warnings import warn
 import numpy as np
 from scipy.stats import poisson
@@ -16,7 +17,8 @@ from math import exp, factorial
 
 # functions -------------------------------------------------------------------
 
-# TODO: Need to update selenium methods to find names using "By" method
+# TODO: Fix first goal error, unclear
+# TODO: Move login details out of config into separate file
 
 def check_team_names(xg_data, teams_to_check, error=True):
     """Check if team names in supersix or first-goal data exist in reference xG
@@ -129,25 +131,49 @@ class Supersix(xg_data.XgDataset):
             options.add_argument('--headless')
             self.driver = webdriver.Chrome(service=config.cwbd_path, options=options)
         else:
-            self.driver = webdriver.Chrome(config.cwbd_path)
+            self.driver = webdriver.Chrome(service=config.cwbd_path)
             
         self.driver.get(self.ss_url)
-        self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
-        
+        sleep(10)
+
+        # accept cookies if necessary
+        #driver.find_element(By.ID, "play-game-nav").click()
+        try:
+            self.driver.find_element(By.ID, "onetrust-accept-btn-handler").click()
+            print("Accepting cookies...")
+            sleep(5)
+        except Exception:
+            print("Skipping cookie acceptance")
+            pass
+
+        # go to login page
+        try:
+            self.driver.find_element(By.ID, "account-bar-login-btn").click()
+            print("Going to login page...")
+            sleep(5)
+        except Exception:
+            print("Skipping navigation to login page")
+            pass
+
         # provide username and password from config file if necessary
         try:
-            self.driver.find_element(By.CLASS_NAME'username').send_keys(config.usrn)
-            self.driver.find_element_by_id('pin').send_keys(config.pno)
+            print("Need to log in")
+            self.driver.find_element(By.ID, "username").send_keys("penstrep")
+            print("Entered username")
+            self.driver.find_element(By.ID, "pin").send_keys("2516")
+            print("Entered password")
             print('Logging in...')
-            sleep(2)
+            sleep(5)
         except Exception:
+            print("Not logging in")
             pass
-        
-        # click login button 
+
+        # click login button
         try:
-            self.driver.find_element_by_class_name('_vykkzu').click()
-            print('Logged in')
-            sleep(2)
+            self.driver.find_element(By.ID, "login-submit").click()
+            sleep(5)
+            print("Successfully logged in")
+            sleep(5)
         except Exception:
             print('Cannot log in')
 
@@ -163,8 +189,6 @@ class Supersix(xg_data.XgDataset):
         """
         
         # get fixtures from new page
-        self.driver.get(self.ss_url)
-        sleep(2)
         self.ss_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
         
         # find team name content by 'div' class tags
@@ -333,7 +357,9 @@ class FgPrediction(first_goal.FirstGoal):
 
     def fg_extract(self):
         self.fg_data = self.get_fg_data()
+        print("Found online first goal data")
         self.fg_data = self.extract_fg_data()
+        print("Extracted ®data")
 
     def predict_first_goal(self):
         self.first_goal_mins = [self.fg_dict['Average'] if team not in list(self.fg_dict.keys()) else self.fg_dict[team]
@@ -344,31 +370,42 @@ class FgPrediction(first_goal.FirstGoal):
 # run -------------------------------------------------------------------------
 
 if __name__ == '__main__':
-    
+
+
+    # get average first goal score team for each team and select minimum
+    #fg = FgPrediction(teams_involved=ss.teams_involved)
+    # download xG reference data
+    xg = xg_data.download_xg_data()
+    Supersix.use_dummy_teams()
+    ss = Supersix(xg_data=xg)
+    fg = FgPrediction(teams_involved=ss.teams_involved)
+    fg.fg_extract()
+    fg.teams_involved = convert_team_names(fg.teams_involved)
+    check_team_names(ss.xg, list(fg.fg_dict.keys()), error=False)
+    fg.predict_first_goal()
+    print(fg.first_goal_min)
+
+    exit()
+
     # download xG reference data
     xg = xg_data.download_xg_data()
     
     # create supersix object, login, and get gameweek data to play
     ss = Supersix(xg_data=xg)
     ss.ss_login(headless=False)
-    exit()
     ss.ss_fixtures()
-#    Supersix.use_dummy_teams()
-#    ss = Supersix(xg_data=xg)
-    exit()
+    #Supersix.use_dummy_teams()
+    #ss = Supersix(xg_data=xg)
+    #exit()
     # filter xG data for relevant teams in gameweek and predict scores
     ss.filter_xg_dataset()
     ss.teams_involved = convert_team_names(ss.teams_involved)
     check_team_names(ss.xg, ss.teams_involved)
     ss.fixture_based_predict()
     ss.season_based_predict()
+    print(ss.fb_results_table)
+    print(ss.sb_results_table)
 
-    # get average first goal score team for each team and select minimum
-    fg = FgPrediction(teams_involved=ss.teams_involved)
-    fg.fg_extract()
-    fg.teams_involved = convert_team_names(fg.teams_involved)
-    check_team_names(ss.xg, list(fg.fg_dict.keys()), error=False)
-    fg.predict_first_goal()
 
 # troubleshooting
 # =============================================================================
