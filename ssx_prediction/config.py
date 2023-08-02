@@ -19,13 +19,10 @@ supersix_url = 'https://super6.skysports.com/play'
 
 # local chrome webdriver executable path
 cwbd_path = Service(executable_path=r'/Users/prasanthsivakumar/Applications/chromedriver_mac64/chromedriver')
-option = webdriver.ChromeOptions()
-option.add_argument('--headless')
-driver = webdriver.Chrome(service=cwbd_path, options=option)
 
 # Supersix login data
-usrn = "********"
-pno = "******"
+usrn = "****"
+pno = "****"
 
 # Team name changes
 path = Path(__file__).parent.parent
