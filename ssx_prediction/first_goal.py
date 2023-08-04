@@ -23,7 +23,6 @@ class FirstGoal:
         for fg_url in list(config.fg_urls.values()):
             print(f"getting data from {fg_url}")
             self.driver.get(fg_url)
-#            fg_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
             try:
                 self.driver.find_element(By.CLASS_NAME, class_tag).click()
                 sleep(5)
@@ -33,6 +32,7 @@ class FirstGoal:
             self.fg_soups.append(fg_soup)
 
     def extract_fg_data(self):
+        self.driver.quit()
         fg_dicts = []
         for fg_soup in self.fg_soups:
             fg_sub1 = fg_soup.findAll('table', attrs={'id': 'btable'})
