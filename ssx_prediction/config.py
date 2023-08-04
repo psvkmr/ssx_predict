@@ -20,17 +20,22 @@ supersix_url = 'https://super6.skysports.com/play'
 # local chrome webdriver executable path
 cwbd_path = Service(executable_path=r'/Users/prasanthsivakumar/Applications/chromedriver_mac64/chromedriver')
 
-# Supersix login data
-usrn = "****"
-pno = "****"
-
 # Team name changes
 path = Path(__file__).parent.parent
+ins = "/data/resources/deets.txt"
 ext = "/data/resources/team_name_changes.csv"
-path = Path(str(path) + ext)
 
+ins_path = Path(str(path) + ins)
+with ins_path.open() as f:
+    deets = f.readlines()
+    deets = [deet.rstrip() for deet in deets]
+usrn = deets[0]
+pn = deets[1]
+
+ext_path = Path(str(path) + ext)
 teams_dict = {}
-with path.open() as f:
+with ext_path.open() as f:
     for line in f:
         (key, val) = line.rstrip('\n').split(sep=',')
         teams_dict[key] = val
+
