@@ -17,7 +17,7 @@ from math import exp, factorial
 
 # functions -------------------------------------------------------------------
 
-# TODO: Move login details out of config into separate file
+# TODO:
 
 def check_team_names(xg_data, teams_to_check, error=True):
     """Check if team names in supersix or first-goal data exist in reference xG
@@ -157,9 +157,9 @@ class Supersix(xg_data.XgDataset):
         # provide username and password from config file if necessary
         try:
             print("Need to log in")
-            self.driver.find_element(By.ID, "username").send_keys("penstrep")
+            self.driver.find_element(By.ID, "username").send_keys(config.usrn)
             print("Entered username")
-            self.driver.find_element(By.ID, "pin").send_keys("2516")
+            self.driver.find_element(By.ID, "pin").send_keys(config.pn)
             print("Entered password")
             print('Logging in...')
             sleep(5)
@@ -199,6 +199,9 @@ class Supersix(xg_data.XgDataset):
         # ensure that the fixtures and team names have been identified from html data
         assert len(self.teams_involved) > 0, 'No SuperSix fixtures found'
         print('Found SuperSix fixtures')
+
+        # once supersix fixtures have been found, exit driver
+        self.driver.quit()
 
     @staticmethod 
     def common_leagues_to_use():
