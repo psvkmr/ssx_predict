@@ -21,11 +21,13 @@ class FirstGoal:
     def get_fg_data(self, class_tag='fc-cta-consent'):
         self.fg_soups = []
         for fg_url in list(config.fg_urls.values()):
+            print(f"getting data from {fg_url}")
             self.driver.get(fg_url)
 #            fg_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
             try:
-                self.driver.find_element_by_class_name(class_tag).click()
-            except:
+                self.driver.find_element(By.CLASS_NAME, class_tag).click()
+                sleep(5)
+            except Exception:
                 pass
             fg_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
             self.fg_soups.append(fg_soup)
@@ -38,7 +40,12 @@ class FirstGoal:
             fg_sub3 = [team_line.findAll('td') for team_line in fg_sub2]
             fg_sub4 = [[stat.get_text(strip=True) for stat in team_stat] for team_stat in fg_sub3]
             team_names = [team_stat[0] for team_stat in fg_sub4]
-            team_ogs = [int(team_stat[2]) for team_stat in fg_sub4]
+            try:
+                team_ogs = [int(team_stat[2]) for team_stat in fg_sub4]
+            except Exception:
+                # exception for first game of the season when no previous first goal data is available
+                # set as 15 arbitrarily for now
+                team_ogs = [15 for team_stat in fg_sub4]
             team_dict = dict(zip(team_names, team_ogs))
             fg_dicts.append(team_dict)
         self.fg_dict = {**fg_dicts[0], **fg_dicts[1], **fg_dicts[2], **fg_dicts[3]}
