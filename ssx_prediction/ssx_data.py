@@ -17,7 +17,6 @@ from math import exp, factorial
 
 # functions -------------------------------------------------------------------
 
-# TODO: Fix first goal error, unclear
 # TODO: Move login details out of config into separate file
 
 def check_team_names(xg_data, teams_to_check, error=True):
@@ -371,22 +370,6 @@ class FgPrediction(first_goal.FirstGoal):
 
 if __name__ == '__main__':
 
-
-    # get average first goal score team for each team and select minimum
-    #fg = FgPrediction(teams_involved=ss.teams_involved)
-    # download xG reference data
-    xg = xg_data.download_xg_data()
-    Supersix.use_dummy_teams()
-    ss = Supersix(xg_data=xg)
-    fg = FgPrediction(teams_involved=ss.teams_involved)
-    fg.fg_extract()
-    fg.teams_involved = convert_team_names(fg.teams_involved)
-    check_team_names(ss.xg, list(fg.fg_dict.keys()), error=False)
-    fg.predict_first_goal()
-    print(fg.first_goal_min)
-
-    exit()
-
     # download xG reference data
     xg = xg_data.download_xg_data()
     
@@ -394,23 +377,31 @@ if __name__ == '__main__':
     ss = Supersix(xg_data=xg)
     ss.ss_login(headless=False)
     ss.ss_fixtures()
-    #Supersix.use_dummy_teams()
-    #ss = Supersix(xg_data=xg)
-    #exit()
+
     # filter xG data for relevant teams in gameweek and predict scores
     ss.filter_xg_dataset()
     ss.teams_involved = convert_team_names(ss.teams_involved)
     check_team_names(ss.xg, ss.teams_involved)
     ss.fixture_based_predict()
     ss.season_based_predict()
-    print(ss.fb_results_table)
-    print(ss.sb_results_table)
 
+    # get average first goal score team for each team and select minimum
+    fg = FgPrediction(teams_involved=ss.teams_involved)
+    fg.fg_extract()
+    fg.teams_involved = convert_team_names(fg.teams_involved)
+    check_team_names(ss.xg, list(fg.fg_dict.keys()), error=False)
+    fg.predict_first_goal()
 
-# troubleshooting
 # =============================================================================
-# ss = Supersix()
-# ss.login(headless=False)
-# ss.teams_involved
+# troubleshooting pre-login, use pre-set teams without logging in
+#Supersix.use_dummy_teams()
+#ss = Supersix(xg_data=xg)
+#ss.filter_xg_dataset()
+# etc...
+# =============================================================================
+# troubleshooting post-login, run chrome automated and not headless to see what it's doing
+#ss = Supersix(xg_data=xg)
+#ss.login(headless=False)
+#ss.teams_involved
 # etc...
 # =============================================================================
