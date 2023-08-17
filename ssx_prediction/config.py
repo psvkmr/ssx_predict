@@ -18,7 +18,7 @@ fg_urls = {'pl': 'https://www.soccerstats.com/firstgoal.asp?league=england',
 supersix_url = 'https://super6.skysports.com/play'
 
 # local chrome webdriver executable path
-cwbd_path = Service(executable_path=r'/Users/prasanthsivakumar/Applications/chromedriver_mac64/chromedriver')
+cwbd_path = Service(executable_path=r'/Users/prasanthsivakumar/Applications/chromedriver-mac-x64/chromedriver')
 
 # Team name changes
 path = Path(__file__).parent.parent
